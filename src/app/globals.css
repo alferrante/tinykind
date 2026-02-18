@@ -1,0 +1,606 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-deep: #0f1c2d;
+  --bg-mid: #1a3c5a;
+  --bg-glow: #f2b766;
+  --card: #fff9ef;
+  --ink: #18202d;
+  --ink-soft: #455569;
+  --accent: #db5e44;
+  --accent-soft: #f6c4a1;
+  --line: #d9c8b3;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-body), "Inter", "Segoe UI", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(1600px 800px at 10% -20%, #fbe4b9 0%, transparent 60%),
+    radial-gradient(1000px 500px at 120% 10%, #f39662 0%, transparent 40%),
+    linear-gradient(160deg, var(--bg-deep) 0%, var(--bg-mid) 60%, #274864 100%);
+}
+
+.shell {
+  width: min(980px, 92vw);
+  margin: 0 auto;
+  padding: 2rem 0 3rem;
+}
+
+.panel {
+  border-radius: 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--line) 70%, white 30%);
+  background: color-mix(in srgb, var(--card) 92%, white 8%);
+  box-shadow:
+    0 20px 50px rgba(8, 14, 21, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.field {
+  width: 100%;
+  border-radius: 0.8rem;
+  border: 1px solid var(--line);
+  background: #fffcf7;
+  color: var(--ink);
+  padding: 0.75rem 0.85rem;
+  font-size: 0.98rem;
+}
+
+.field:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 40%, white 60%);
+  outline-offset: 1px;
+}
+
+.btn {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.68rem 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-primary {
+  color: #fffaf0;
+  background: linear-gradient(120deg, #cf553f 0%, #e07749 40%, #f09e66 100%);
+  box-shadow: 0 10px 20px rgba(207, 85, 63, 0.28);
+}
+
+.btn-primary:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.2) opacity(0.7);
+}
+
+.mono {
+  font-family: "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
+}
+
+:root {
+  --fg: rgba(255, 255, 255, 0.92);
+  --fg-muted: rgba(255, 255, 255, 0.72);
+  --stroke: rgba(255, 255, 255, 0.14);
+  --card: rgba(255, 255, 255, 0.92);
+  --card-fg: rgba(10, 14, 20, 0.92);
+  --shadow-lg: 0 30px 70px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 18px 40px rgba(0, 0, 0, 0.28);
+  --radius-lg: 28px;
+  --radius-md: 18px;
+  --radius-pill: 999px;
+  --ease-premium: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.tk-page {
+  min-height: 100svh;
+  color: var(--fg);
+  overflow: hidden;
+  position: relative;
+  font-family: var(--font-body), Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+.tk-page[data-theme="midnight"] {
+  background:
+    radial-gradient(900px 600px at 20% 20%, rgba(255, 80, 190, 0.22), transparent 55%),
+    radial-gradient(900px 600px at 70% 60%, rgba(120, 80, 255, 0.22), transparent 60%),
+    radial-gradient(1200px 800px at 50% 120%, rgba(0, 255, 200, 0.1), transparent 60%),
+    linear-gradient(180deg, #05060a 0%, #070b1a 40%, #0b0d18 100%);
+}
+
+.tk-page::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  pointer-events: none;
+  opacity: 0.22;
+  background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.22) 1px, transparent 0);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(70% 60% at 30% 20%, #000 0%, transparent 70%);
+}
+
+.tk-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 22px 26px;
+  position: relative;
+  z-index: 2;
+}
+
+.tk-brand {
+  display: inline-flex;
+  align-items: center;
+  min-width: 140px;
+}
+
+.tk-brandImage {
+  display: block;
+  width: clamp(132px, 16vw, 182px);
+  height: auto;
+  opacity: 0.98;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.35));
+}
+
+.tk-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.tk-ghost {
+  color: var(--fg);
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-pill);
+  padding: 10px 14px;
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+}
+
+.tk-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 26px 26px 106px;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 34px;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+}
+
+.tk-kicker {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  margin-bottom: 14px;
+}
+
+.tk-h1 {
+  font-size: clamp(34px, 4.6vw, 64px);
+  line-height: 1.08;
+  margin: 0 0 14px;
+  letter-spacing: -0.02em;
+  font-weight: 640;
+}
+
+.tk-accent {
+  color: rgba(238, 255, 169, 0.96);
+  border-bottom: 1px solid rgba(238, 255, 169, 0.55);
+}
+
+.tk-sub {
+  font-size: 18px;
+  line-height: 1.45;
+  color: var(--fg-muted);
+  max-width: 40ch;
+  margin: 0 0 18px;
+}
+
+.tk-meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tk-chip {
+  font-size: 13px;
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-pill);
+  padding: 8px 12px;
+  backdrop-filter: blur(10px);
+}
+
+.tk-stage {
+  position: relative;
+  min-height: 460px;
+  display: grid;
+  place-items: center;
+  perspective: 1400px;
+}
+
+.tk-spotlight {
+  position: absolute;
+  width: min(560px, 70vw);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.2), transparent 62%);
+  filter: blur(2px);
+  transform: translateY(14px);
+}
+
+.tk-envelopeWrap {
+  position: relative;
+  width: min(440px, 80vw);
+  height: 300px;
+  z-index: 2;
+  filter: drop-shadow(0 30px 70px rgba(0, 0, 0, 0.45));
+  transform-style: preserve-3d;
+  transition: transform 320ms var(--ease-premium);
+  animation: tk-float 5s ease-in-out infinite;
+  transform: rotateX(var(--tk-tilt-x, 0deg)) rotateY(var(--tk-tilt-y, 0deg));
+  cursor: pointer;
+}
+
+.tk-envelopeBack {
+  position: absolute;
+  inset: 46px 0 0;
+  border-radius: 20px;
+  background:
+    linear-gradient(166deg, #efd2af 0%, #e5bc93 58%, #dca57f 100%),
+    url("/art/envelope-paper.png") center / cover no-repeat;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.36);
+}
+
+.tk-envelopeFront {
+  position: absolute;
+  inset: 154px 0 0;
+  border-radius: 20px;
+  background: linear-gradient(164deg, #ebc79e 0%, #dfb084 65%, #d59b70 100%);
+  overflow: hidden;
+  z-index: 4;
+}
+
+.tk-envelopeFront::before,
+.tk-envelopeFront::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 52%;
+  height: 100%;
+  background: linear-gradient(170deg, rgba(240, 205, 170, 0.84), rgba(224, 169, 120, 0.85));
+}
+
+.tk-envelopeFront::before {
+  left: 0;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+.tk-envelopeFront::after {
+  right: 0;
+  clip-path: polygon(100% 0, 0 0, 100% 100%);
+}
+
+.tk-envelopeFlap {
+  position: absolute;
+  inset: 46px 0 auto;
+  height: 156px;
+  transform-origin: top center;
+  border-radius: 20px 20px 0 0;
+  background:
+    linear-gradient(180deg, #f4d8b8 0%, #dfb187 86%),
+    url("/art/envelope-liner.png") center / cover no-repeat;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.3);
+  z-index: 6;
+  transform: rotateX(0deg);
+  opacity: 1;
+  transition:
+    transform 340ms var(--ease-premium),
+    opacity 180ms linear 140ms;
+}
+
+.tk-envelopeFlap[data-open="true"] {
+  transform: rotateX(-175deg) translateY(-14px);
+  opacity: 0;
+}
+
+.tk-noteCard {
+  position: absolute;
+  left: 11%;
+  width: 78%;
+  top: 72px;
+  border-radius: 20px;
+  border: 1px solid rgba(232, 222, 204, 0.85);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 249, 0.96), rgba(251, 246, 237, 0.95)),
+    url("/art/note-paper.png") center / cover no-repeat;
+  color: var(--card-fg);
+  padding: 1.15rem 1.2rem 1.15rem;
+  max-width: 34ch;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.3);
+  transform: translateY(42%) rotate(0.6deg);
+  opacity: 0;
+  transition:
+    transform 500ms var(--ease-premium),
+    opacity 260ms ease;
+  z-index: 5;
+}
+
+.tk-noteCard::after {
+  content: "";
+  position: absolute;
+  right: 18px;
+  top: 14px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(209, 92, 66, 0.32);
+  box-shadow: 0 0 0 1px rgba(209, 92, 66, 0.22);
+}
+
+.tk-noteCard[data-open="true"] {
+  opacity: 1;
+  transform: translateY(-39%) rotate(-1.1deg);
+  transition-delay: 160ms;
+}
+
+.tk-noteLabel {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(74, 94, 126, 0.9);
+  font-weight: 700;
+}
+
+.tk-noteText {
+  margin: 0.5rem 0 0;
+  font-size: clamp(18px, 2vw, 22px);
+  line-height: 1.5;
+  color: rgba(16, 24, 34, 0.95);
+}
+
+.tk-noteVoice {
+  width: 100%;
+  margin-top: 0.8rem;
+}
+
+.tk-seal {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  width: 84px;
+  height: 84px;
+  transform: translateX(-50%);
+  z-index: 8;
+  pointer-events: none;
+}
+
+.tk-openPill {
+  position: absolute;
+  bottom: 20px;
+  z-index: 4;
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-pill);
+  padding: 10px 14px;
+  backdrop-filter: blur(12px);
+  transition: opacity 220ms ease;
+}
+
+.tk-dock {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-pill);
+  background: rgba(10, 12, 18, 0.46);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.35);
+  z-index: 7;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease;
+}
+
+.tk-dock[data-visible="true"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.tk-dockLabel {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.72);
+  padding: 0 6px 0 2px;
+}
+
+.tk-emojiBtn {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  display: grid;
+  place-items: center;
+  transition: transform 120ms ease, background 120ms ease;
+}
+
+.tk-emojiBtn:hover {
+  transform: translateY(-1px) scale(1.03);
+}
+
+.tk-emojiBtn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.tk-emojiBtnActive {
+  border-color: rgba(204, 255, 150, 0.72);
+  background: rgba(204, 255, 150, 0.2);
+}
+
+.tk-dockDivider {
+  width: 1px;
+  height: 26px;
+  background: rgba(255, 255, 255, 0.14);
+  margin: 0 2px;
+}
+
+.tk-dockCTA {
+  padding: 10px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--fg);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.tk-dockNotice {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(78px + env(safe-area-inset-bottom));
+  background: rgba(9, 14, 24, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+  z-index: 8;
+}
+
+.tk-dockNotice[data-visible="true"] {
+  opacity: 1;
+}
+
+@keyframes tk-float {
+  0%,
+  100% {
+    transform: rotateX(var(--tk-tilt-x, 0deg)) rotateY(var(--tk-tilt-y, 0deg)) translateY(0);
+  }
+  50% {
+    transform: rotateX(var(--tk-tilt-x, 0deg)) rotateY(var(--tk-tilt-y, 0deg)) translateY(-4px);
+  }
+}
+
+@media (max-width: 920px) {
+  .tk-shell {
+    grid-template-columns: 1fr;
+    padding-bottom: 120px;
+  }
+
+  .tk-stage {
+    min-height: 380px;
+  }
+
+  .tk-h1 {
+    font-size: clamp(32px, 9vw, 40px);
+  }
+
+  .tk-sub {
+    font-size: 17px;
+  }
+}
+
+@media (max-width: 620px) {
+  .tk-topbar {
+    padding: 16px 15px;
+  }
+
+  .tk-shell {
+    padding: 14px 14px 124px;
+    gap: 18px;
+  }
+
+  .tk-actions {
+    gap: 7px;
+  }
+
+  .tk-ghost {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .tk-stage {
+    min-height: 330px;
+  }
+
+  .tk-envelopeWrap {
+    width: min(360px, 92vw);
+    height: 250px;
+  }
+
+  .tk-envelopeBack {
+    inset: 36px 0 0;
+  }
+
+  .tk-envelopeFront {
+    inset: 130px 0 0;
+  }
+
+  .tk-envelopeFlap {
+    inset: 36px 0 auto;
+    height: 130px;
+  }
+
+  .tk-noteCard {
+    top: 56px;
+    padding: 0.92rem;
+  }
+
+  .tk-noteText {
+    font-size: 18px;
+  }
+
+  .tk-seal {
+    width: 74px;
+    height: 74px;
+  }
+
+  .tk-dock {
+    width: calc(100vw - 18px);
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 9px 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tk-envelopeWrap {
+    animation: none;
+    transition: none;
+    transform: none;
+  }
+
+  .tk-envelopeFlap,
+  .tk-noteCard,
+  .tk-dock {
+    transition: none;
+  }
+
+  .tk-noteCard[data-open="true"] {
+    transform: translateY(-39%) rotate(-1deg);
+  }
+}
+  .tk-brandImage {
+    width: clamp(118px, 38vw, 144px);
+  }

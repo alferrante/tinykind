@@ -1,0 +1,4 @@
+interface:
+  display_name: "TinyKind"
+  short_description: "Create and send TinyKinds with hosted landing links and Gmail drafts"
+  default_prompt: "Use $tinykind to write a short gratitude note, generate a unique TinyKind landing URL, and prepare a Gmail draft or copy-ready share text."
