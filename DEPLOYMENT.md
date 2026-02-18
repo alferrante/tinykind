@@ -4,7 +4,7 @@ This app creates a unique live URL for every TinyKind (`/t/<slug>`) and returns 
 
 ## 1. Push To GitHub
 
-Run in `/Users/zapierangelaferrante/TinyKind`:
+Run in your project root:
 
 ```bash
 git init

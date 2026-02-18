@@ -25,10 +25,10 @@ Open `http://localhost:3000`.
 - `NEXT_PUBLIC_BASE_URL` - absolute app URL used in generated links.
 - `TINYKIND_DATA_DIR` - directory for JSON storage (`tinykind.json`).
 
-See `/Users/zapierangelaferrante/TinyKind/.env.example`.
+See `.env.example`.
 
 ## Deploy
 
-Render Blueprint config is included at `/Users/zapierangelaferrante/TinyKind/render.yaml`.
+Render Blueprint config is included at `render.yaml`.
 
-Full steps: `/Users/zapierangelaferrante/TinyKind/DEPLOYMENT.md`.
+Full steps: `DEPLOYMENT.md`.
