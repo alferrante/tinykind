@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deleteMessageById, getLatestReactionForMessage, getMessageById } from "@/lib/store";
+import { isAdminRequest } from "@/lib/adminAuth";
 
 export async function GET(
-  _: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
+  if (!isAdminRequest(request)) {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
   const { id } = await context.params;
   const message = await getMessageById(id);
   if (!message) {
@@ -16,9 +20,12 @@ export async function GET(
 }
 
 export async function DELETE(
-  _: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
+  if (!isAdminRequest(request)) {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
   const { id } = await context.params;
   const deleted = await deleteMessageById(id);
   if (!deleted) {
@@ -26,4 +33,3 @@ export async function DELETE(
   }
   return NextResponse.json({ ok: true });
 }
-

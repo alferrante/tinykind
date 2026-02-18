@@ -40,6 +40,7 @@ Set these in Render service settings:
 
 - `NEXT_PUBLIC_BASE_URL=https://tinykind.app` (or your chosen production URL)
 - `TINYKIND_DATA_DIR=/var/data`
+- `TINYKIND_ADMIN_TOKEN=<random-long-secret>` (protects admin/debug message APIs)
 
 The live store file is `/var/data/tinykind.json`.
 

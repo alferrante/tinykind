@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createMessage, listRecentMessages } from "@/lib/store";
+import { isAdminRequest } from "@/lib/adminAuth";
 import type { Channel, UnwrapStyle } from "@/lib/types";
 
 interface CreateMessageRequest {
@@ -16,12 +17,18 @@ interface CreateMessageRequest {
   transcriptCleaned?: string | null;
 }
 
-export async function GET(): Promise<NextResponse> {
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  if (!isAdminRequest(request)) {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
   const messages = await listRecentMessages();
   return NextResponse.json({ messages });
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  if (!isAdminRequest(request)) {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
   try {
     const payload = (await request.json()) as CreateMessageRequest;
     const message = await createMessage({
@@ -46,4 +53,3 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: details }, { status: 400 });
   }
 }
-
