@@ -13,6 +13,7 @@ export interface TinyKindMessage {
   userId: string;
   recipientId: string;
   senderName: string;
+  senderNotifyEmail: string | null;
   recipientName: string;
   recipientContact: string;
   channel: Channel;
@@ -36,4 +37,3 @@ export interface Reaction {
   createdAt: string;
   recipientFingerprint: string;
 }
-

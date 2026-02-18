@@ -4,6 +4,7 @@ import type { Channel, UnwrapStyle } from "@/lib/types";
 
 interface SendRequest {
   senderName?: string;
+  senderNotifyEmail?: string;
   recipientName?: string;
   recipientContact?: string;
   body?: string;
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const payload = (await request.json()) as SendRequest;
     const message = await createMessage({
       senderName: payload.senderName ?? "",
+      senderNotifyEmail: payload.senderNotifyEmail ?? null,
       recipientName: payload.recipientName ?? "",
       recipientContact: payload.recipientContact ?? "",
       body: payload.body ?? "",

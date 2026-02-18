@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { sendReactionNotification } from "@/lib/reactionNotification";
 import { makeRecipientFingerprint, upsertReaction } from "@/lib/store";
 
 interface ReactionRequest {
@@ -19,7 +20,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const existingCookie = request.cookies.get("tk_fp")?.value ?? null;
     const stableSeed = existingCookie ?? randomUUID();
     const recipientFingerprint = makeRecipientFingerprint(stableSeed);
-    const reaction = await upsertReaction({ slug, emoji, recipientFingerprint });
+    const { reaction, message, changed } = await upsertReaction({ slug, emoji, recipientFingerprint });
+    if (changed && message.senderNotifyEmail) {
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? request.nextUrl.origin;
+      const messageUrl = `${baseUrl}/t/${message.shortLinkSlug}`;
+      try {
+        await sendReactionNotification({
+          toEmail: message.senderNotifyEmail,
+          senderName: message.senderName,
+          recipientName: message.recipientName,
+          emoji: reaction.emoji,
+          messageUrl,
+        });
+      } catch (notifyError) {
+        console.error("Failed to send TinyKind reaction email", notifyError);
+      }
+    }
 
     const response = NextResponse.json({ reaction }, { status: 201 });
     if (!existingCookie) {
@@ -39,4 +55,3 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: details }, { status: 400 });
   }
 }
-

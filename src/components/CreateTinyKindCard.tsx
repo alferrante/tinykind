@@ -19,6 +19,7 @@ interface CreateResponse {
 
 export default function CreateTinyKindCard() {
   const [senderName, setSenderName] = useState("");
+  const [senderNotifyEmail, setSenderNotifyEmail] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [recipientContact, setRecipientContact] = useState("");
   const [body, setBody] = useState("");
@@ -58,6 +59,7 @@ export default function CreateTinyKindCard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           senderName,
+          senderNotifyEmail,
           recipientName,
           recipientContact,
           body,
@@ -98,6 +100,16 @@ export default function CreateTinyKindCard() {
             onChange={(event) => setSenderName(event.target.value)}
             placeholder="Your name"
             value={senderName}
+          />
+        </label>
+
+        <label className="grid gap-1 text-sm font-medium">
+          Your email (reaction notifications, optional)
+          <input
+            className="field mono"
+            onChange={(event) => setSenderNotifyEmail(event.target.value)}
+            placeholder="you@email.com"
+            value={senderNotifyEmail}
           />
         </label>
 

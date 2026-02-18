@@ -11,6 +11,7 @@ The local skill calls your hosted TinyKind backend.
 ```json
 {
   "senderName": "Angela",
+  "senderNotifyEmail": "angela@example.com",
   "recipientName": "Andrew Hillis",
   "recipientContact": "andrew@example.com",
   "body": "Thanks for showing up this week.",
@@ -31,6 +32,8 @@ The local skill calls your hosted TinyKind backend.
 ```
 
 The skill can still work if only `messageUrl` is returned, but Gmail draft/copy flow is best when all fields above are present.
+
+`senderNotifyEmail` is optional. When provided, recipient emoji reactions can trigger sender notification emails.
 
 ## Auth
 

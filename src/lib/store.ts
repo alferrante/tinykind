@@ -36,8 +36,13 @@ async function readDb(): Promise<TinyKindDb> {
   await ensureDataFile();
   const raw = await fs.readFile(DATA_FILE, "utf8");
   const parsed = JSON.parse(raw) as Partial<TinyKindDb>;
+  const messages = (parsed.messages ?? []).map((message) => ({
+    ...message,
+    senderNotifyEmail: message.senderNotifyEmail ?? null,
+    deletedAt: message.deletedAt ?? null,
+  })) as TinyKindMessage[];
   return {
-    messages: parsed.messages ?? [],
+    messages,
     reactions: parsed.reactions ?? [],
   };
 }
@@ -51,6 +56,10 @@ function trimAndSingleSpace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
+function trimAndLower(value: string): string {
+  return value.trim().toLowerCase();
+}
+
 function validateBody(body: string): string {
   const cleaned = body.trim();
   if (!cleaned) {
@@ -58,6 +67,21 @@ function validateBody(body: string): string {
   }
   if (cleaned.length > 240) {
     throw new Error("Message body must be 240 characters or fewer.");
+  }
+  return cleaned;
+}
+
+function validateOptionalEmail(value: string | undefined | null): string | null {
+  if (!value) {
+    return null;
+  }
+  const cleaned = trimAndLower(value);
+  if (!cleaned) {
+    return null;
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(cleaned)) {
+    throw new Error("senderNotifyEmail must be a valid email address.");
   }
   return cleaned;
 }
@@ -81,6 +105,7 @@ export function makeRecipientFingerprint(seed: string): string {
 
 export interface CreateMessageInput {
   senderName: string;
+  senderNotifyEmail?: string | null;
   recipientName: string;
   recipientContact: string;
   body: string;
@@ -95,6 +120,7 @@ export interface CreateMessageInput {
 
 export async function createMessage(input: CreateMessageInput): Promise<TinyKindMessage> {
   const senderName = trimAndSingleSpace(input.senderName);
+  const senderNotifyEmail = validateOptionalEmail(input.senderNotifyEmail);
   const recipientName = trimAndSingleSpace(input.recipientName);
   const recipientContact = trimAndSingleSpace(input.recipientContact);
 
@@ -120,6 +146,7 @@ export async function createMessage(input: CreateMessageInput): Promise<TinyKind
     userId: "local-dev-user",
     recipientId: randomUUID(),
     senderName,
+    senderNotifyEmail,
     recipientName,
     recipientContact,
     channel: input.channel ?? "sms",
@@ -176,7 +203,13 @@ interface UpsertReactionInput {
   recipientFingerprint: string;
 }
 
-export async function upsertReaction(input: UpsertReactionInput): Promise<Reaction> {
+export interface UpsertReactionResult {
+  reaction: Reaction;
+  message: TinyKindMessage;
+  changed: boolean;
+}
+
+export async function upsertReaction(input: UpsertReactionInput): Promise<UpsertReactionResult> {
   if (!isAllowedReaction(input.emoji)) {
     throw new Error("Unsupported emoji.");
   }
@@ -197,10 +230,11 @@ export async function upsertReaction(input: UpsertReactionInput): Promise<Reacti
   );
 
   if (existing) {
+    const changed = existing.emoji !== input.emoji;
     existing.emoji = input.emoji;
     existing.createdAt = now;
     await writeDb(db);
-    return existing;
+    return { reaction: existing, message, changed };
   }
 
   const reaction: Reaction = {
@@ -212,7 +246,7 @@ export async function upsertReaction(input: UpsertReactionInput): Promise<Reacti
   };
   db.reactions.push(reaction);
   await writeDb(db);
-  return reaction;
+  return { reaction, message, changed: true };
 }
 
 export async function getLatestReactionForMessage(messageId: string): Promise<Reaction | null> {

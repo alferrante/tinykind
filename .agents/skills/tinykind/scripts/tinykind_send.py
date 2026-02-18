@@ -30,6 +30,11 @@ def parse_args() -> argparse.Namespace:
         help="Optional API key sent as Authorization: Bearer <key>",
     )
     parser.add_argument("--from-name", required=True, help="Sender name")
+    parser.add_argument(
+        "--notify-email",
+        default=os.environ.get("TINYKIND_SENDER_NOTIFY_EMAIL", "").strip(),
+        help="Optional sender email to receive recipient reaction notifications",
+    )
     parser.add_argument("--to-name", required=True, help="Recipient display name")
     parser.add_argument(
         "--to-contact",
@@ -61,6 +66,7 @@ def post_send(
     api_base_url: str,
     api_key: str,
     from_name: str,
+    notify_email: str,
     to_name: str,
     to_contact: str,
     body: str,
@@ -69,6 +75,7 @@ def post_send(
     send_url = urllib.parse.urljoin(api_base_url.rstrip("/") + "/", "api/send")
     payload = {
         "senderName": from_name,
+        "senderNotifyEmail": notify_email or None,
         "recipientName": to_name,
         "recipientContact": to_contact,
         "body": body,
@@ -129,6 +136,7 @@ def main() -> int:
         api_base_url=args.api_base_url,
         api_key=args.api_key,
         from_name=args.from_name,
+        notify_email=args.notify_email,
         to_name=args.to_name,
         to_contact=args.to_contact,
         body=args.body,
