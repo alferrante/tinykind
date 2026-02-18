@@ -18,12 +18,10 @@ interface CreateResponse {
 }
 
 export default function CreateTinyKindCard() {
-  const [senderName, setSenderName] = useState("Angela");
-  const [recipientName, setRecipientName] = useState("Andrew Hillis");
-  const [recipientContact, setRecipientContact] = useState("+15555555555");
-  const [body, setBody] = useState(
-    "Andrew, I appreciate your bedmaking skills and the care you put into everyday things. You are a very good momo.",
-  );
+  const [senderName, setSenderName] = useState("");
+  const [recipientName, setRecipientName] = useState("");
+  const [recipientContact, setRecipientContact] = useState("");
+  const [body, setBody] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<CreateResponse | null>(null);
@@ -95,7 +93,12 @@ export default function CreateTinyKindCard() {
       <form className="grid gap-3" onSubmit={onSubmit}>
         <label className="grid gap-1 text-sm font-medium">
           From
-          <input className="field" value={senderName} onChange={(event) => setSenderName(event.target.value)} />
+          <input
+            className="field"
+            onChange={(event) => setSenderName(event.target.value)}
+            placeholder="Your name"
+            value={senderName}
+          />
         </label>
 
         <label className="grid gap-1 text-sm font-medium">
@@ -104,6 +107,7 @@ export default function CreateTinyKindCard() {
             className="field"
             value={recipientName}
             onChange={(event) => setRecipientName(event.target.value)}
+            placeholder="Recipient name"
           />
         </label>
 
@@ -113,6 +117,7 @@ export default function CreateTinyKindCard() {
             className="field mono"
             value={recipientContact}
             onChange={(event) => setRecipientContact(event.target.value)}
+            placeholder="name@email.com or +1..."
           />
         </label>
 
@@ -122,7 +127,8 @@ export default function CreateTinyKindCard() {
             className="field min-h-28 resize-y"
             value={body}
             onChange={(event) => setBody(event.target.value)}
-            maxLength={500}
+            maxLength={240}
+            placeholder="I appreciate you because..."
           />
         </label>
 
