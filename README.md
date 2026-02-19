@@ -9,16 +9,14 @@ This repository contains **two things**:
 1. **Web app** (Next.js app in `src/`)  
 2. **Codex skill** (only this folder): `.agents/skills/tinykind`
 
-If you only want the skill, you only need `.agents/skills/tinykind`.
-If you only want the app experience, use the hosted web app (no local app run needed).
+If you  want to use TinyKind as a skill in a coding agent, you only need `.agents/skills/tinykind`.
+If you  want the app experience, use the hosted web app.
 
 ## Hosted Web App (No Local Setup)
 
 Use TinyKind on the hosted site:
 
-- [https://tinykind-web.onrender.com](https://tinykind-web.onrender.com)
-
-If/when `tinykind.app` is live, that should be the primary URL.
+- [https://tinykind.app](https://tinykind.app)
 
 ## Skill-Only Install (No App Setup)
 
