@@ -18,9 +18,7 @@ export default function HomePage() {
           />
         </div>
         <h1 className="mt-2 text-4xl leading-[1.05] text-[#fff5df] md:text-5xl">
-          Write once.
-          <br />
-          Send warmth in one link.
+          Make someone feel seen, one tiny kind note at a time.
         </h1>
       </header>
 
