@@ -17,6 +17,7 @@ If you  want the app experience, use the hosted web app.
 Use TinyKind on the hosted site:
 
 - [https://tinykind.app](https://tinykind.app)
+- Fallback: [https://tinykind-web.onrender.com](https://tinykind-web.onrender.com)
 
 ## Skill-Only Install (No App Setup)
 
@@ -86,6 +87,14 @@ Options:
 - `RESEND_API_KEY` - optional, sends sender email notifications on reactions.
 - `TINYKIND_REACTION_FROM_EMAIL` - optional, required with `RESEND_API_KEY`.
 - `TINYKIND_ADMIN_TOKEN` - optional, protects admin/debug APIs (`/api/messages*`).
+- `ADMIN_PASSWORD` - optional but recommended, enables browser admin login at `/admin`.
+
+## Admin Access (Private)
+
+- Login page: `/admin/login`
+- Admin submissions view: `/admin`
+- Keep this private by setting `ADMIN_PASSWORD` in Render env vars.
+- For script/API access, you can still use `TINYKIND_ADMIN_TOKEN`.
 
 See `.env.example`.
 

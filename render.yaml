@@ -12,6 +12,14 @@ services:
         value: 20.18.0
       - key: NEXT_PUBLIC_BASE_URL
         sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: TINYKIND_ADMIN_TOKEN
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: TINYKIND_REACTION_FROM_EMAIL
+        sync: false
       - key: TINYKIND_DATA_DIR
         value: /var/data
     disks:

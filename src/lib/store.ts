@@ -197,6 +197,34 @@ export async function listRecentMessages(limit = 20): Promise<TinyKindMessage[]>
     .slice(0, limit);
 }
 
+export interface MessageWithLatestReaction {
+  message: TinyKindMessage;
+  latestReaction: Reaction | null;
+}
+
+export async function listRecentMessagesWithLatestReaction(
+  limit = 200,
+): Promise<MessageWithLatestReaction[]> {
+  const db = await readDb();
+  const messages = db.messages
+    .filter((message) => !message.deletedAt)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .slice(0, limit);
+
+  const latestByMessageId = new Map<string, Reaction>();
+  const reactions = [...db.reactions].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  for (const reaction of reactions) {
+    if (!latestByMessageId.has(reaction.messageId)) {
+      latestByMessageId.set(reaction.messageId, reaction);
+    }
+  }
+
+  return messages.map((message) => ({
+    message,
+    latestReaction: latestByMessageId.get(message.id) ?? null,
+  }));
+}
+
 interface UpsertReactionInput {
   slug: string;
   emoji: string;

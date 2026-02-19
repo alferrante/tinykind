@@ -41,6 +41,7 @@ Set these in Render service settings:
 - `NEXT_PUBLIC_BASE_URL=https://tinykind.app` (or your chosen production URL)
 - `TINYKIND_DATA_DIR=/var/data`
 - `TINYKIND_ADMIN_TOKEN=<random-long-secret>` (protects admin/debug message APIs)
+- `ADMIN_PASSWORD=<strong-admin-password>` (enables private `/admin` browser login)
 - `RESEND_API_KEY=<resend-api-key>` (optional, enables sender reaction notification emails)
 - `TINYKIND_REACTION_FROM_EMAIL="TinyKind <reactions@tinykind.app>"` (optional, required with `RESEND_API_KEY`)
 
@@ -72,6 +73,10 @@ Wait for DNS + SSL provisioning, then verify both:
 3. Open the generated `/t/<slug>` URL in an incognito browser.
 4. React with emoji and verify state updates.
 5. If sender provided an email, verify reaction notification email arrives.
+6. Verify admin login:
+   - Open `/admin/login`
+   - Sign in with `ADMIN_PASSWORD`
+   - Confirm recent submissions render in `/admin`
 
 ## 6. Current MVP Limits
 
