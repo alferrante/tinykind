@@ -2,36 +2,45 @@
 
 TinyKind lets a sender write a short gratitude note, generates a unique landing page URL, and prepares Gmail-ready content for sending.
 
-## Local Run
+## Read This First
 
-```bash
-npm ci
-npm run dev
-```
+This repository contains **two things**:
 
-Open `http://localhost:3000`.
+1. **Web app** (Next.js app in `src/`)  
+2. **Codex skill** (only this folder): `.agents/skills/tinykind`
 
-## Use As A Local Skill (Codex)
+If you only want the skill, you only need `.agents/skills/tinykind` and **do not** need to run the web app locally.
 
-The TinyKind skill lives at:
+## Skill-Only Install (No App Setup)
 
-- `.agents/skills/tinykind/SKILL.md`
-
-To use it locally in Codex, you can either:
-
-1. Clone this repo and run inside it (Codex will discover `.agents/skills/tinykind`), or
-2. Copy the skill folder into your global skills directory:
+Copy only the skill folder into your Codex skills directory:
 
 ```bash
 mkdir -p ~/.codex/skills
 cp -R .agents/skills/tinykind ~/.codex/skills/tinykind
 ```
 
-The skill send script is:
+If you want to download only the skill path from GitHub (instead of full app code), use sparse checkout:
+
+```bash
+git clone --filter=blob:none --no-checkout https://github.com/alferrante/tinykind.git
+cd tinykind
+git sparse-checkout init --cone
+git sparse-checkout set .agents/skills/tinykind
+git checkout main
+```
+
+## Use As A Local Skill (Codex)
+
+Main skill file:
+
+- `.agents/skills/tinykind/SKILL.md`
+
+Send script:
 
 - `.agents/skills/tinykind/scripts/tinykind_send.py`
 
-Example:
+Example run:
 
 ```bash
 python3 .agents/skills/tinykind/scripts/tinykind_send.py \
@@ -53,6 +62,17 @@ Options:
   `Who do you feel grateful for this week? Let's tell them!`
 - macOS fallback: use  
   `.agents/skills/tinykind/scripts/tinykind_schedule_reminder_macos.py`
+
+## Web App (Optional)
+
+Only needed if you are developing the app itself.
+
+```bash
+npm ci
+npm run dev
+```
+
+Open `http://localhost:3000`.
 
 ## Core Flow
 
