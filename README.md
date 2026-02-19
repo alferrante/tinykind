@@ -9,7 +9,16 @@ This repository contains **two things**:
 1. **Web app** (Next.js app in `src/`)  
 2. **Codex skill** (only this folder): `.agents/skills/tinykind`
 
-If you only want the skill, you only need `.agents/skills/tinykind` and **do not** need to run the web app locally.
+If you only want the skill, you only need `.agents/skills/tinykind`.
+If you only want the app experience, use the hosted web app (no local app run needed).
+
+## Hosted Web App (No Local Setup)
+
+Use TinyKind on the hosted site:
+
+- [https://tinykind-web.onrender.com](https://tinykind-web.onrender.com)
+
+If/when `tinykind.app` is live, that should be the primary URL.
 
 ## Skill-Only Install (No App Setup)
 
@@ -62,17 +71,6 @@ Options:
   `Who do you feel grateful for this week? Let's tell them!`
 - macOS fallback: use  
   `.agents/skills/tinykind/scripts/tinykind_schedule_reminder_macos.py`
-
-## Web App (Optional)
-
-Only needed if you are developing the app itself.
-
-```bash
-npm ci
-npm run dev
-```
-
-Open `http://localhost:3000`.
 
 ## Core Flow
 
