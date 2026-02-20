@@ -16,18 +16,23 @@ function looksLikeEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
-function buildShareEmail(senderName: string, recipientName: string, noteBody: string, messageUrl: string): {
+function buildShareEmail(senderName: string, recipientName: string, messageUrl: string): {
   subject: string;
   body: string;
   preview: string;
 } {
   const subject = `A TinyKind from ${senderName}`;
-  const hasGreeting = /^(hi|hey|dear)\b/i.test(noteBody.trim());
-  const bodyLines = hasGreeting
-    ? [noteBody, "", `Open your TinyKind: ${messageUrl}`, "", "Made with tinykind"]
-    : [`Hi ${recipientName},`, "", noteBody, "", `Open your TinyKind: ${messageUrl}`, "", "Made with tinykind"];
+  const bodyLines = [
+    `Hi ${recipientName},`,
+    "",
+    `You've received a TinyKind from ${senderName}.`,
+    "",
+    `Open your TinyKind: ${messageUrl}`,
+    "",
+    "Made with tinykind",
+  ];
   const body = bodyLines.join("\n");
-  const preview = `${noteBody}\n\n${messageUrl}`;
+  const preview = `You've received a TinyKind from ${senderName}.\n\n${messageUrl}`;
   return { subject, body, preview };
 }
 
@@ -68,7 +73,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       message.recipientContact && looksLikeEmail(message.recipientContact)
         ? message.recipientContact
         : null;
-    const emailDraft = buildShareEmail(message.senderName, message.recipientName, message.body, messageUrl);
+    const emailDraft = buildShareEmail(message.senderName, message.recipientName, messageUrl);
     const gmailComposeUrl = buildGmailComposeUrl(recipientEmail, emailDraft.subject, emailDraft.body);
 
     return NextResponse.json(
