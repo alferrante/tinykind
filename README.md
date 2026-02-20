@@ -103,3 +103,7 @@ See `.env.example`.
 Render Blueprint config is included at `render.yaml`.
 
 Full steps: `DEPLOYMENT.md`.
+
+## Roadmap
+
+See `ROADMAP.md` for planned features and sequencing.

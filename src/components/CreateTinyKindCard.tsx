@@ -21,7 +21,7 @@ export default function CreateTinyKindCard() {
   const [senderName, setSenderName] = useState("");
   const [senderNotifyEmail, setSenderNotifyEmail] = useState("");
   const [recipientName, setRecipientName] = useState("");
-  const [recipientContact, setRecipientContact] = useState("");
+  const [recipientEmail, setRecipientEmail] = useState("");
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,9 +61,9 @@ export default function CreateTinyKindCard() {
           senderName,
           senderNotifyEmail,
           recipientName,
-          recipientContact,
+          recipientContact: recipientEmail,
           body,
-          channel: "sms",
+          channel: "email",
         }),
       });
 
@@ -86,9 +86,10 @@ export default function CreateTinyKindCard() {
         <div>
           <h2 className="text-2xl leading-tight">Create TinyKind</h2>
           <p className="mt-1 text-sm text-[var(--ink-soft)]">
-            Creates a new message + unique share URL on every send at{" "}
+            Creates a unique TinyKind link and Gmail draft on every send at{" "}
             <span className="mono">/t/&lt;slug&gt;</span>.
           </p>
+          <p className="mt-1 text-xs text-[var(--ink-soft)]">SMS sending is not automated yet.</p>
         </div>
       </div>
 
@@ -124,12 +125,12 @@ export default function CreateTinyKindCard() {
         </label>
 
         <label className="grid gap-1 text-sm font-medium">
-          To contact (phone/email)
+          Recipient email (optional)
           <input
             className="field mono"
-            value={recipientContact}
-            onChange={(event) => setRecipientContact(event.target.value)}
-            placeholder="name@email.com or +1..."
+            value={recipientEmail}
+            onChange={(event) => setRecipientEmail(event.target.value)}
+            placeholder="recipient@email.com"
           />
         </label>
 
@@ -150,7 +151,7 @@ export default function CreateTinyKindCard() {
 
         <div className="mt-1 flex items-center gap-3">
           <button type="submit" className="btn btn-primary" disabled={loading || bodyTooLong}>
-            {loading ? "Creating..." : "Create link + draft email"}
+            {loading ? "Creating..." : "Create link + Gmail draft"}
           </button>
           {error ? <span className="text-sm text-[#a22d2d]">{error}</span> : null}
         </div>
@@ -194,7 +195,7 @@ export default function CreateTinyKindCard() {
             </button>
           </div>
           <div className="mt-3 text-sm text-[var(--ink-soft)]">
-            Recipient email: {created.recipientEmail ?? "Add recipient in Gmail compose"}
+            Recipient email: {created.recipientEmail ?? "Not provided (add recipient in Gmail)"}
           </div>
           <div className="mt-2 text-sm text-[var(--ink-soft)]">Email preview:</div>
           <pre className="mono mt-2 overflow-x-auto rounded-lg bg-[#1e2834] p-3 text-xs text-[#d7e7ff]">

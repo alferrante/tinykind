@@ -38,6 +38,7 @@ async function readDb(): Promise<TinyKindDb> {
   const parsed = JSON.parse(raw) as Partial<TinyKindDb>;
   const messages = (parsed.messages ?? []).map((message) => ({
     ...message,
+    recipientContact: message.recipientContact ?? null,
     senderNotifyEmail: message.senderNotifyEmail ?? null,
     deletedAt: message.deletedAt ?? null,
   })) as TinyKindMessage[];
@@ -107,7 +108,7 @@ export interface CreateMessageInput {
   senderName: string;
   senderNotifyEmail?: string | null;
   recipientName: string;
-  recipientContact: string;
+  recipientContact?: string | null;
   body: string;
   channel?: Channel;
   unwrapStyle?: UnwrapStyle;
@@ -122,7 +123,7 @@ export async function createMessage(input: CreateMessageInput): Promise<TinyKind
   const senderName = trimAndSingleSpace(input.senderName);
   const senderNotifyEmail = validateOptionalEmail(input.senderNotifyEmail);
   const recipientName = trimAndSingleSpace(input.recipientName);
-  const recipientContact = trimAndSingleSpace(input.recipientContact);
+  const recipientContact = trimAndSingleSpace(input.recipientContact ?? "");
 
   if (!senderName) {
     throw new Error("senderName is required.");
@@ -130,10 +131,6 @@ export async function createMessage(input: CreateMessageInput): Promise<TinyKind
   if (!recipientName) {
     throw new Error("recipientName is required.");
   }
-  if (!recipientContact) {
-    throw new Error("recipientContact is required.");
-  }
-
   const db = await readDb();
   let slug = generateSlug();
   while (db.messages.some((message) => message.shortLinkSlug === slug)) {
@@ -148,7 +145,7 @@ export async function createMessage(input: CreateMessageInput): Promise<TinyKind
     senderName,
     senderNotifyEmail,
     recipientName,
-    recipientContact,
+    recipientContact: recipientContact || null,
     channel: input.channel ?? "sms",
     createdAt: now,
     rawText: input.rawText ?? null,

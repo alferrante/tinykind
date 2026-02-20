@@ -15,7 +15,7 @@ export interface TinyKindMessage {
   senderName: string;
   senderNotifyEmail: string | null;
   recipientName: string;
-  recipientContact: string;
+  recipientContact: string | null;
   channel: Channel;
   createdAt: string;
   rawText: string | null;

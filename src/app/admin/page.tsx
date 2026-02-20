@@ -64,7 +64,7 @@ export default async function AdminPage() {
                 <div className="mt-2 text-sm text-[#263346]">{message.body}</div>
 
                 <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[#4b5d77]">
-                  <span>Contact: {message.recipientContact}</span>
+                  <span>Contact: {message.recipientContact ?? "not provided"}</span>
                   <span>Channel: {message.channel}</span>
                   <span>
                     Sender email: {message.senderNotifyEmail ? message.senderNotifyEmail : "not provided"}

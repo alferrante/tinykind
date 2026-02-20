@@ -51,11 +51,16 @@ function buildGmailComposeUrl(to: string | null, subject: string, body: string):
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const payload = (await request.json()) as SendRequest;
+    const recipientEmailInput = payload.recipientContact?.trim() ?? "";
+    if (recipientEmailInput && !looksLikeEmail(recipientEmailInput)) {
+      throw new Error("Recipient email must be a valid email address.");
+    }
+
     const message = await createMessage({
       senderName: payload.senderName ?? "",
       senderNotifyEmail: payload.senderNotifyEmail ?? null,
       recipientName: payload.recipientName ?? "",
-      recipientContact: payload.recipientContact ?? "",
+      recipientContact: recipientEmailInput || null,
       body: payload.body ?? "",
       channel: payload.channel,
       unwrapStyle: payload.unwrapStyle,
@@ -63,7 +68,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? request.nextUrl.origin;
     const messageUrl = `${baseUrl}/t/${message.shortLinkSlug}`;
-    const recipientEmail = looksLikeEmail(message.recipientContact) ? message.recipientContact : null;
+    const recipientEmail =
+      message.recipientContact && looksLikeEmail(message.recipientContact)
+        ? message.recipientContact
+        : null;
     const emailDraft = buildShareEmail(message.senderName, message.recipientName, message.body, messageUrl);
     const gmailComposeUrl = buildGmailComposeUrl(recipientEmail, emailDraft.subject, emailDraft.body);
 
