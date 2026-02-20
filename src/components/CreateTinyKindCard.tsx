@@ -190,8 +190,6 @@ export default function CreateTinyKindCard() {
               className="btn text-sm"
               onClick={() => {
                 setSendMarked(true);
-                setCopied("Marked as sent");
-                setTimeout(() => setCopied(""), 1500);
               }}
               disabled={!gmailOpened}
               type="button"
