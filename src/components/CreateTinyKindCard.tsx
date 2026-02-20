@@ -85,13 +85,6 @@ export default function CreateTinyKindCard() {
       <div className="mb-4 flex items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl leading-tight">Create TinyKind</h2>
-          <p className="mt-1 text-sm text-[var(--ink-soft)]">
-            Creates a unique TinyKind link and Gmail draft on every send at{" "}
-            <span className="mono">/t/&lt;slug&gt;</span>.
-          </p>
-          <p className="mt-1 text-xs text-[var(--ink-soft)]">
-            TinyKind does not auto-send yet. You review and send from Gmail.
-          </p>
         </div>
       </div>
 
@@ -107,7 +100,7 @@ export default function CreateTinyKindCard() {
         </label>
 
         <label className="grid gap-1 text-sm font-medium">
-          Your email (reaction notifications, optional)
+          Your email (optional - to receive reaction notifications)
           <input
             className="field mono"
             onChange={(event) => setSenderNotifyEmail(event.target.value)}

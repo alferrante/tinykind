@@ -22,15 +22,11 @@ function buildShareEmail(senderName: string, recipientName: string, noteBody: st
   preview: string;
 } {
   const subject = `A TinyKind from ${senderName}`;
-  const body = [
-    `Hi ${recipientName},`,
-    "",
-    noteBody,
-    "",
-    `Open your TinyKind: ${messageUrl}`,
-    "",
-    "Made with tinykind",
-  ].join("\n");
+  const hasGreeting = /^(hi|hey|dear)\b/i.test(noteBody.trim());
+  const bodyLines = hasGreeting
+    ? [noteBody, "", `Open your TinyKind: ${messageUrl}`, "", "Made with tinykind"]
+    : [`Hi ${recipientName},`, "", noteBody, "", `Open your TinyKind: ${messageUrl}`, "", "Made with tinykind"];
+  const body = bodyLines.join("\n");
   const preview = `${noteBody}\n\n${messageUrl}`;
   return { subject, body, preview };
 }
