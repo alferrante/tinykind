@@ -38,13 +38,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const destination = new URL(safeNextPath(nextPath), request.url);
+  const destinationPath = safeNextPath(nextPath);
   if (!verifyAdminPassword(password)) {
-    const failed = new URL("/admin/login?error=1", request.url);
-    return NextResponse.redirect(failed, { status: 303 });
+    const failed = new NextResponse(null, { status: 303 });
+    failed.headers.set("Location", "/admin/login?error=1");
+    return failed;
   }
 
-  const response = NextResponse.redirect(destination, { status: 303 });
+  const response = new NextResponse(null, { status: 303 });
+  response.headers.set("Location", destinationPath);
   response.cookies.set({
     name: ADMIN_SESSION_COOKIE,
     value: sessionValue,

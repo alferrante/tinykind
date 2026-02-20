@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { ADMIN_SESSION_COOKIE } from "@/lib/adminAuth";
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
-  const response = NextResponse.redirect(new URL("/admin/login", request.url), { status: 303 });
+export async function POST(): Promise<NextResponse> {
+  const response = new NextResponse(null, { status: 303 });
+  response.headers.set("Location", "/admin/login");
   response.cookies.set({
     name: ADMIN_SESSION_COOKIE,
     value: "",
