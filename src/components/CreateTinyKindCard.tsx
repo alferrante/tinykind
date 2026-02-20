@@ -89,7 +89,9 @@ export default function CreateTinyKindCard() {
             Creates a unique TinyKind link and Gmail draft on every send at{" "}
             <span className="mono">/t/&lt;slug&gt;</span>.
           </p>
-          <p className="mt-1 text-xs text-[var(--ink-soft)]">SMS sending is not automated yet.</p>
+          <p className="mt-1 text-xs text-[var(--ink-soft)]">
+            TinyKind does not auto-send yet. You review and send from Gmail.
+          </p>
         </div>
       </div>
 
@@ -125,7 +127,7 @@ export default function CreateTinyKindCard() {
         </label>
 
         <label className="grid gap-1 text-sm font-medium">
-          Recipient email (optional)
+          Recipient email (optional, prefills Gmail To:)
           <input
             className="field mono"
             value={recipientEmail}
@@ -170,7 +172,7 @@ export default function CreateTinyKindCard() {
               rel="noreferrer"
               target="_blank"
             >
-              Open Gmail draft
+              Open Gmail draft (you send)
             </a>
             <button
               className="btn text-sm"
@@ -196,6 +198,9 @@ export default function CreateTinyKindCard() {
           </div>
           <div className="mt-3 text-sm text-[var(--ink-soft)]">
             Recipient email: {created.recipientEmail ?? "Not provided (add recipient in Gmail)"}
+          </div>
+          <div className="mt-1 text-xs text-[var(--ink-soft)]">
+            This does not send automatically until you click Send in Gmail.
           </div>
           <div className="mt-2 text-sm text-[var(--ink-soft)]">Email preview:</div>
           <pre className="mono mt-2 overflow-x-auto rounded-lg bg-[#1e2834] p-3 text-xs text-[#d7e7ff]">
