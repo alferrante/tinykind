@@ -66,8 +66,8 @@ function validateBody(body: string): string {
   if (!cleaned) {
     throw new Error("Message body is required.");
   }
-  if (cleaned.length > 240) {
-    throw new Error("Message body must be 240 characters or fewer.");
+  if (cleaned.length > 500) {
+    throw new Error("Message body must be 500 characters or fewer.");
   }
   return cleaned;
 }

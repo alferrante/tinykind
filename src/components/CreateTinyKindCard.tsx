@@ -27,9 +27,11 @@ export default function CreateTinyKindCard() {
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<CreateResponse | null>(null);
   const [copied, setCopied] = useState<string>("");
+  const [gmailOpened, setGmailOpened] = useState(false);
+  const [sendMarked, setSendMarked] = useState(false);
 
   const charCount = body.length;
-  const bodyTooLong = charCount > 240;
+  const bodyTooLong = charCount > 500;
 
   async function copyToClipboard(label: string, value: string): Promise<void> {
     try {
@@ -45,7 +47,7 @@ export default function CreateTinyKindCard() {
   async function onSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (bodyTooLong) {
-      setError("Body exceeds 240 characters.");
+      setError("Body exceeds 500 characters.");
       return;
     }
 
@@ -53,6 +55,8 @@ export default function CreateTinyKindCard() {
       setLoading(true);
       setError(null);
       setCreated(null);
+      setGmailOpened(false);
+      setSendMarked(false);
 
       const response = await fetch("/api/send", {
         method: "POST",
@@ -78,6 +82,15 @@ export default function CreateTinyKindCard() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function openGmailDraft(): void {
+    if (!created) {
+      return;
+    }
+    window.open(created.gmailComposeUrl, "_blank", "noopener,noreferrer");
+    setGmailOpened(true);
+    setSendMarked(false);
   }
 
   return (
@@ -135,13 +148,13 @@ export default function CreateTinyKindCard() {
             className="field min-h-28 resize-y"
             value={body}
             onChange={(event) => setBody(event.target.value)}
-            maxLength={240}
+            maxLength={500}
             placeholder="I appreciate you because..."
           />
         </label>
 
         <div className="text-sm text-[var(--ink-soft)]">
-          {charCount}/240 {bodyTooLong ? "(too long)" : ""}
+          {charCount}/500 {bodyTooLong ? "(too long)" : ""}
         </div>
 
         <div className="mt-1 flex items-center gap-3">
@@ -159,14 +172,13 @@ export default function CreateTinyKindCard() {
             {created.messageUrl}
           </a>
           <div className="mt-3 flex flex-wrap gap-2">
-            <a
+            <button
               className="btn btn-primary inline-block text-sm"
-              href={created.gmailComposeUrl}
-              rel="noreferrer"
-              target="_blank"
+              onClick={openGmailDraft}
+              type="button"
             >
               Open Gmail draft (you send)
-            </a>
+            </button>
             <button
               className="btn text-sm"
               onClick={() => copyToClipboard("Link", created.messageUrl)}
@@ -176,17 +188,15 @@ export default function CreateTinyKindCard() {
             </button>
             <button
               className="btn text-sm"
-              onClick={() => copyToClipboard("Email subject", created.emailSubject)}
+              onClick={() => {
+                setSendMarked(true);
+                setCopied("Marked as sent");
+                setTimeout(() => setCopied(""), 1500);
+              }}
+              disabled={!gmailOpened}
               type="button"
             >
-              Copy subject
-            </button>
-            <button
-              className="btn text-sm"
-              onClick={() => copyToClipboard("Email body", created.emailBody)}
-              type="button"
-            >
-              Copy body
+              I sent it
             </button>
           </div>
           <div className="mt-3 text-sm text-[var(--ink-soft)]">
@@ -195,13 +205,34 @@ export default function CreateTinyKindCard() {
           <div className="mt-1 text-xs text-[var(--ink-soft)]">
             This does not send automatically until you click Send in Gmail.
           </div>
+          {gmailOpened && !sendMarked ? (
+            <div className="mt-1 text-xs text-[var(--ink-soft)]">
+              After sending in Gmail, click &quot;I sent it&quot; here.
+            </div>
+          ) : null}
+          {sendMarked ? <div className="mt-1 text-xs text-[#174a8c]">Sent confirmed.</div> : null}
           <div className="mt-2 text-sm text-[var(--ink-soft)]">Email preview:</div>
-          <pre className="mono mt-2 overflow-x-auto rounded-lg bg-[#1e2834] p-3 text-xs text-[#d7e7ff]">
-            {created.emailSubject}
-            {"\n\n"}
-            {created.emailBody}
-          </pre>
-          {copied ? <div className="mt-2 text-xs text-[#174a8c]">{copied}</div> : null}
+          <div className="relative">
+            <button
+              aria-label="Copy full email body"
+              className="btn absolute right-2 top-2 px-3 py-1 text-xs"
+              onClick={() => copyToClipboard("Body", created.emailBody)}
+              title="Copy body"
+              type="button"
+            >
+              ⧉
+            </button>
+            <pre className="mono mt-2 overflow-x-auto rounded-lg bg-[#1e2834] p-3 pr-20 text-xs text-[#d7e7ff]">
+              {created.emailSubject}
+              {"\n\n"}
+              {created.emailBody}
+            </pre>
+          </div>
+          {copied ? (
+            <div className="fixed bottom-5 right-5 z-20 rounded-full bg-[#1e2834] px-4 py-2 text-xs text-[#d7e7ff] shadow-lg">
+              {copied}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>
