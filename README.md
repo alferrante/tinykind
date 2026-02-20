@@ -84,6 +84,10 @@ Options:
 
 - `NEXT_PUBLIC_BASE_URL` - absolute app URL used in generated links.
 - `TINYKIND_DATA_DIR` - directory for JSON storage (`tinykind.json`).
+- `TINYKIND_BACKUP_DIR` - directory for backup snapshots.
+- `TINYKIND_BACKUP_ON_WRITE` - set `1` to create a snapshot after each write.
+- `TINYKIND_BACKUP_RETENTION_DAYS` - backup retention window.
+- `TINYKIND_BACKUP_MAX_FILES` - max backup files to keep.
 - `RESEND_API_KEY` - optional, sends sender email notifications on reactions.
 - `TINYKIND_REACTION_FROM_EMAIL` - optional, required with `RESEND_API_KEY`.
 - `TINYKIND_ADMIN_TOKEN` - optional, protects admin/debug APIs (`/api/messages*`).
@@ -93,6 +97,7 @@ Options:
 
 - Login page: `/admin/login`
 - Admin submissions view: `/admin`
+- Manual backup trigger: `/admin` -> `Backup now`
 - Keep this private by setting `ADMIN_PASSWORD` in Render env vars.
 - For script/API access, you can still use `TINYKIND_ADMIN_TOKEN`.
 

@@ -15,10 +15,19 @@ interface TinyKindDb {
   reactions: Reaction[];
 }
 
+const PROD_DEFAULT_DATA_DIR = "/var/data";
 const DATA_DIR = process.env.TINYKIND_DATA_DIR
   ? path.resolve(process.env.TINYKIND_DATA_DIR)
-  : path.join(process.cwd(), "data");
+  : process.env.NODE_ENV === "production"
+    ? PROD_DEFAULT_DATA_DIR
+    : path.join(process.cwd(), "data");
 const DATA_FILE = path.join(DATA_DIR, "tinykind.json");
+const BACKUP_DIR = process.env.TINYKIND_BACKUP_DIR
+  ? path.resolve(process.env.TINYKIND_BACKUP_DIR)
+  : path.join(DATA_DIR, "backups");
+const BACKUP_ON_WRITE = process.env.TINYKIND_BACKUP_ON_WRITE !== "0";
+const BACKUP_MAX_FILES = Number(process.env.TINYKIND_BACKUP_MAX_FILES ?? "400");
+const BACKUP_RETENTION_DAYS = Number(process.env.TINYKIND_BACKUP_RETENTION_DAYS ?? "30");
 const EMPTY_DB: TinyKindDb = { messages: [], reactions: [] };
 
 const STYLE_OPTIONS: UnwrapStyle[] = ["A", "B", "C"];
@@ -51,6 +60,104 @@ async function readDb(): Promise<TinyKindDb> {
 async function writeDb(db: TinyKindDb): Promise<void> {
   await ensureDataFile();
   await fs.writeFile(DATA_FILE, JSON.stringify(db, null, 2), "utf8");
+  if (BACKUP_ON_WRITE) {
+    void writeBackupSnapshot(db);
+  }
+}
+
+function backupFileName(date: Date): string {
+  const iso = date.toISOString().replace(/[:.]/g, "-");
+  return `tinykind-${iso}.json`;
+}
+
+async function writeBackupSnapshot(db: TinyKindDb): Promise<void> {
+  try {
+    await fs.mkdir(BACKUP_DIR, { recursive: true });
+    const filePath = path.join(BACKUP_DIR, backupFileName(new Date()));
+    await fs.writeFile(filePath, JSON.stringify(db, null, 2), "utf8");
+    await pruneBackups();
+  } catch (error) {
+    // Backups are best-effort; writes should not fail if backup storage has issues.
+    console.error("[tinykind] backup snapshot failed", error);
+  }
+}
+
+async function pruneBackups(): Promise<void> {
+  const files = await fs.readdir(BACKUP_DIR);
+  const full = await Promise.all(
+    files
+      .filter((name) => name.startsWith("tinykind-") && name.endsWith(".json"))
+      .map(async (name) => {
+        const filePath = path.join(BACKUP_DIR, name);
+        const stat = await fs.stat(filePath);
+        return { name, filePath, mtimeMs: stat.mtimeMs };
+      }),
+  );
+
+  full.sort((a, b) => b.mtimeMs - a.mtimeMs);
+
+  const now = Date.now();
+  const maxAgeMs = Math.max(BACKUP_RETENTION_DAYS, 1) * 24 * 60 * 60 * 1000;
+  const toDelete = full.filter((item, index) => {
+    const tooOld = now - item.mtimeMs > maxAgeMs;
+    const tooMany = index >= Math.max(BACKUP_MAX_FILES, 20);
+    return tooOld || tooMany;
+  });
+
+  await Promise.all(toDelete.map((item) => fs.unlink(item.filePath).catch(() => undefined)));
+}
+
+export async function createManualBackupSnapshot(): Promise<{
+  path: string;
+  count: number;
+}> {
+  const db = await readDb();
+  await fs.mkdir(BACKUP_DIR, { recursive: true });
+  const filePath = path.join(BACKUP_DIR, backupFileName(new Date()));
+  await fs.writeFile(filePath, JSON.stringify(db, null, 2), "utf8");
+  await pruneBackups();
+  return { path: filePath, count: db.messages.filter((item) => !item.deletedAt).length };
+}
+
+export async function getStorageDiagnostics(): Promise<{
+  dataDir: string;
+  dataFile: string;
+  backupDir: string;
+  backupOnWrite: boolean;
+  backupRetentionDays: number;
+  backupMaxFiles: number;
+  dataFileExists: boolean;
+  backupCount: number;
+  messageCount: number;
+}> {
+  let dataFileExists = false;
+  try {
+    await fs.access(DATA_FILE);
+    dataFileExists = true;
+  } catch {
+    dataFileExists = false;
+  }
+
+  let backupCount = 0;
+  try {
+    const files = await fs.readdir(BACKUP_DIR);
+    backupCount = files.filter((name) => name.startsWith("tinykind-") && name.endsWith(".json")).length;
+  } catch {
+    backupCount = 0;
+  }
+
+  const db = await readDb();
+  return {
+    dataDir: DATA_DIR,
+    dataFile: DATA_FILE,
+    backupDir: BACKUP_DIR,
+    backupOnWrite: BACKUP_ON_WRITE,
+    backupRetentionDays: BACKUP_RETENTION_DAYS,
+    backupMaxFiles: BACKUP_MAX_FILES,
+    dataFileExists,
+    backupCount,
+    messageCount: db.messages.filter((item) => !item.deletedAt).length,
+  };
 }
 
 function trimAndSingleSpace(value: string): string {

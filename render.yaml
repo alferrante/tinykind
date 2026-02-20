@@ -22,7 +22,28 @@ services:
         sync: false
       - key: TINYKIND_DATA_DIR
         value: /var/data
+      - key: TINYKIND_BACKUP_DIR
+        value: /var/data/backups
+      - key: TINYKIND_BACKUP_ON_WRITE
+        value: "1"
+      - key: TINYKIND_BACKUP_RETENTION_DAYS
+        value: "30"
+      - key: TINYKIND_BACKUP_MAX_FILES
+        value: "400"
     disks:
       - name: tinykind-data
         mountPath: /var/data
         sizeGB: 1
+  - type: cron
+    name: tinykind-backup
+    runtime: node
+    schedule: "0 */6 * * *"
+    buildCommand: ""
+    startCommand: >-
+      curl -fsS -X POST "$BACKUP_TRIGGER_URL"
+      -H "x-tinykind-admin-token: $TINYKIND_ADMIN_TOKEN"
+    envVars:
+      - key: BACKUP_TRIGGER_URL
+        value: https://tinykind.app/api/admin/backup
+      - key: TINYKIND_ADMIN_TOKEN
+        sync: false

@@ -33,6 +33,7 @@ Use an empty repo URL, for example:
 - build: `npm ci && npm run build`
 - start: `npm run start -- --port $PORT`
 - persistent disk at `/var/data`
+- cron backup job every 6 hours (`tinykind-backup`)
 
 ## 3. Render Environment Variables
 
@@ -40,12 +41,17 @@ Set these in Render service settings:
 
 - `NEXT_PUBLIC_BASE_URL=https://tinykind.app` (or your chosen production URL)
 - `TINYKIND_DATA_DIR=/var/data`
+- `TINYKIND_BACKUP_DIR=/var/data/backups`
+- `TINYKIND_BACKUP_ON_WRITE=1`
+- `TINYKIND_BACKUP_RETENTION_DAYS=30`
+- `TINYKIND_BACKUP_MAX_FILES=400`
 - `TINYKIND_ADMIN_TOKEN=<random-long-secret>` (protects admin/debug message APIs)
 - `ADMIN_PASSWORD=<strong-admin-password>` (enables private `/admin` browser login)
 - `RESEND_API_KEY=<resend-api-key>` (optional, enables sender reaction notification emails)
 - `TINYKIND_REACTION_FROM_EMAIL="TinyKind <reactions@tinykind.app>"` (optional, required with `RESEND_API_KEY`)
 
 The live store file is `/var/data/tinykind.json`.
+Backups are saved under `/var/data/backups`.
 
 ## 4. Connect `tinykind.app` (Namecheap)
 
@@ -77,9 +83,11 @@ Wait for DNS + SSL provisioning, then verify both:
    - Open `/admin/login`
    - Sign in with `ADMIN_PASSWORD`
    - Confirm recent submissions render in `/admin`
+7. In `/admin`, click **Backup now** and confirm backups count increases.
 
 ## 6. Current MVP Limits
 
 - JSON file storage on one persistent disk.
+- Backups are on the same disk (not yet offsite/object-storage backups).
 - No sender auth yet.
 - No direct email sending provider yet (Gmail compose is current flow).
