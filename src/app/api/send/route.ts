@@ -22,17 +22,9 @@ function buildShareEmail(senderName: string, recipientName: string, messageUrl: 
   preview: string;
 } {
   const subject = `A TinyKind from ${senderName}`;
-  const bodyLines = [
-    `Hi ${recipientName},`,
-    "",
-    `You've received a TinyKind from ${senderName}.`,
-    "",
-    `Open your TinyKind: ${messageUrl}`,
-    "",
-    "Made with tinykind",
-  ];
+  const bodyLines = [`You've received a TinyKind from ${senderName}: ${messageUrl}`, "", "Made with tinykind"];
   const body = bodyLines.join("\n");
-  const preview = `You've received a TinyKind from ${senderName}.\n\n${messageUrl}`;
+  const preview = `You've received a TinyKind from ${senderName}: ${messageUrl}`;
   return { subject, body, preview };
 }
 

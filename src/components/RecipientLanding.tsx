@@ -20,6 +20,11 @@ interface ReactionApiResponse {
   reaction: {
     emoji: AllowedReactionEmoji;
   };
+  notification?: {
+    attempted: boolean;
+    sent: boolean;
+    reason?: string;
+  };
 }
 
 export default function RecipientLanding({
@@ -134,8 +139,13 @@ export default function RecipientLanding({
         throw new Error("error" in payload ? payload.error : "Failed to save reaction.");
       }
 
-      setSelectedReaction((payload as ReactionApiResponse).reaction.emoji);
-      setReactionNotice(`Sent to ${senderName}`);
+      const reactionPayload = payload as ReactionApiResponse;
+      setSelectedReaction(reactionPayload.reaction.emoji);
+      if (reactionPayload.notification?.attempted && !reactionPayload.notification.sent) {
+        setReactionNotice("Reaction saved. Sender notification is currently unavailable.");
+      } else {
+        setReactionNotice(`Sent to ${senderName}`);
+      }
     } catch (error) {
       setReactionNotice(error instanceof Error ? error.message : "Could not save reaction.");
     } finally {

@@ -8,6 +8,12 @@ interface ReactionRequest {
   emoji?: string;
 }
 
+interface ReactionNotificationStatus {
+  attempted: boolean;
+  sent: boolean;
+  reason?: string;
+}
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const payload = (await request.json()) as ReactionRequest;
@@ -21,23 +27,46 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const stableSeed = existingCookie ?? randomUUID();
     const recipientFingerprint = makeRecipientFingerprint(stableSeed);
     const { reaction, message, changed } = await upsertReaction({ slug, emoji, recipientFingerprint });
+    let notification: ReactionNotificationStatus = {
+      attempted: false,
+      sent: false,
+    };
+
     if (changed && message.senderNotifyEmail) {
+      notification.attempted = true;
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? request.nextUrl.origin;
       const messageUrl = `${baseUrl}/t/${message.shortLinkSlug}`;
       try {
-        await sendReactionNotification({
+        const result = await sendReactionNotification({
           toEmail: message.senderNotifyEmail,
           senderName: message.senderName,
           recipientName: message.recipientName,
           emoji: reaction.emoji,
           messageUrl,
         });
+        notification = {
+          attempted: true,
+          sent: result.sent,
+          reason: result.reason,
+        };
+        if (!result.sent) {
+          console.warn("[tinykind] reaction notification not sent", {
+            slug,
+            toEmail: message.senderNotifyEmail,
+            reason: result.reason ?? "unknown",
+          });
+        }
       } catch (notifyError) {
+        notification = {
+          attempted: true,
+          sent: false,
+          reason: notifyError instanceof Error ? notifyError.message : "unknown-error",
+        };
         console.error("Failed to send TinyKind reaction email", notifyError);
       }
     }
 
-    const response = NextResponse.json({ reaction }, { status: 201 });
+    const response = NextResponse.json({ reaction, notification }, { status: 201 });
     if (!existingCookie) {
       response.cookies.set({
         name: "tk_fp",

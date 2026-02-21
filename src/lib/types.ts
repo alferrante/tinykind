@@ -4,7 +4,7 @@ export type Channel = "sms" | "email";
 
 export type MessageStatus = "draft" | "sent";
 
-export const ALLOWED_REACTIONS = ["💛", "😊", "😭", "🥹", "😌", "🙏", "🫶", "✨"] as const;
+export const ALLOWED_REACTIONS = ["❤️", "😊", "😭", "🥹", "😌", "🙏", "🫶", "✨"] as const;
 
 export type AllowedReactionEmoji = (typeof ALLOWED_REACTIONS)[number];
 

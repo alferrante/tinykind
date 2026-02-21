@@ -49,7 +49,14 @@ export async function sendReactionNotification(
   });
 
   if (!response.ok) {
-    return { sent: false, reason: `resend-${response.status}` };
+    let details = "";
+    try {
+      details = await response.text();
+    } catch {
+      details = "";
+    }
+    const compact = details.replace(/\s+/g, " ").trim().slice(0, 240);
+    return { sent: false, reason: compact ? `resend-${response.status}: ${compact}` : `resend-${response.status}` };
   }
 
   return { sent: true };
