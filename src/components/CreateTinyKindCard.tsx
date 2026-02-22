@@ -23,6 +23,7 @@ export default function CreateTinyKindCard() {
   const [recipientName, setRecipientName] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
   const [body, setBody] = useState("");
+  const [website, setWebsite] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<CreateResponse | null>(null);
@@ -67,6 +68,7 @@ export default function CreateTinyKindCard() {
           recipientName,
           recipientContact: recipientEmail,
           body,
+          website,
           channel: "email",
         }),
       });
@@ -102,6 +104,15 @@ export default function CreateTinyKindCard() {
       </div>
 
       <form className="grid gap-3" onSubmit={onSubmit}>
+        <label aria-hidden="true" className="hidden">
+          Website
+          <input
+            autoComplete="off"
+            onChange={(event) => setWebsite(event.target.value)}
+            tabIndex={-1}
+            value={website}
+          />
+        </label>
         <label className="grid gap-1 text-sm font-medium">
           From
           <input
@@ -209,6 +220,15 @@ export default function CreateTinyKindCard() {
             </div>
           ) : null}
           {sendMarked ? <div className="mt-1 text-xs text-[#174a8c]">Sent confirmed.</div> : null}
+          {senderNotifyEmail ? (
+            <div className="mt-2 text-xs text-[var(--ink-soft)]">
+              Want history and reminders?{" "}
+              <a className="underline" href={`/login?email=${encodeURIComponent(senderNotifyEmail)}`}>
+                Sign in with this email
+              </a>
+              .
+            </div>
+          ) : null}
           <div className="mt-2 text-sm text-[var(--ink-soft)]">Email preview:</div>
           <div className="relative">
             <button

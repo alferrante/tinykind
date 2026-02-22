@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { enforceRateLimit } from "@/lib/rateLimit";
 import { sendReactionNotification } from "@/lib/reactionNotification";
-import { makeRecipientFingerprint, upsertReaction } from "@/lib/store";
+import { addOperationalEvent, makeRecipientFingerprint, upsertReaction } from "@/lib/store";
 
 interface ReactionRequest {
   slug?: string;
@@ -16,6 +17,21 @@ interface ReactionNotificationStatus {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    const limiter = enforceRateLimit(request, {
+      scope: "reactions",
+      maxHits: 60,
+      windowMs: 60_000,
+    });
+    if (!limiter.ok) {
+      return NextResponse.json(
+        { error: "Too many reactions. Please try again shortly." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(limiter.retryAfterSeconds) },
+        },
+      );
+    }
+
     const payload = (await request.json()) as ReactionRequest;
     const slug = payload.slug?.trim();
     const emoji = payload.emoji?.trim();
@@ -50,10 +66,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           reason: result.reason,
         };
         if (!result.sent) {
+          await addOperationalEvent("reaction_notify_failed", {
+            messageId: message.id,
+            senderEmail: message.senderNotifyEmail,
+            metadata: {
+              slug,
+              reason: result.reason ?? "unknown",
+            },
+          });
           console.warn("[tinykind] reaction notification not sent", {
             slug,
             toEmail: message.senderNotifyEmail,
             reason: result.reason ?? "unknown",
+          });
+        } else {
+          await addOperationalEvent("reaction_notify_sent", {
+            messageId: message.id,
+            senderEmail: message.senderNotifyEmail,
+            metadata: { slug, emoji: reaction.emoji },
           });
         }
       } catch (notifyError) {
@@ -62,6 +92,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           sent: false,
           reason: notifyError instanceof Error ? notifyError.message : "unknown-error",
         };
+        await addOperationalEvent("reaction_notify_failed", {
+          messageId: message.id,
+          senderEmail: message.senderNotifyEmail,
+          metadata: {
+            slug,
+            reason: notification.reason ?? "unknown-error",
+          },
+        });
         console.error("Failed to send TinyKind reaction email", notifyError);
       }
     }

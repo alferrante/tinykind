@@ -34,6 +34,7 @@ Use an empty repo URL, for example:
 - start: `npm run start -- --port $PORT`
 - persistent disk at `/var/data`
 - cron backup job every 6 hours (`tinykind-backup`)
+- cron reminder runner every 15 minutes (`tinykind-weekly-reminders`)
 
 ## 3. Render Environment Variables
 
@@ -47,6 +48,8 @@ Set these in Render service settings:
 - `TINYKIND_BACKUP_MAX_FILES=400`
 - `TINYKIND_ADMIN_TOKEN=<random-long-secret>` (protects admin/debug message APIs)
 - `ADMIN_PASSWORD=<strong-admin-password>` (enables private `/admin` browser login)
+- `TINYKIND_AUTH_SECRET=<long-random-secret>` (sender magic-link login signing)
+- `TINYKIND_CRON_TOKEN=<random-long-secret>` (authorizes reminder cron calls)
 - `RESEND_API_KEY=<resend-api-key>` (optional, enables sender reaction notification emails)
 - `TINYKIND_REACTION_FROM_EMAIL="TinyKind <reactions@tinykind.app>"` (optional, required with `RESEND_API_KEY`)
 
@@ -83,11 +86,14 @@ Wait for DNS + SSL provisioning, then verify both:
    - Open `/admin/login`
    - Sign in with `ADMIN_PASSWORD`
    - Confirm recent submissions render in `/admin`
-7. In `/admin`, click **Backup now** and confirm backups count increases.
+7. Verify sender login + dashboard:
+   - Open `/login`
+   - Request magic link and sign in
+   - Confirm `/dashboard` shows sender history and reminder settings
+8. In `/admin`, click **Backup now** and confirm backups count increases.
 
 ## 6. Current MVP Limits
 
 - JSON file storage on one persistent disk.
 - Backups are on the same disk (not yet offsite/object-storage backups).
-- No sender auth yet.
-- No direct email sending provider yet (Gmail compose is current flow).
+- Requires explicit sender click to send from Gmail draft (app does not auto-send outbound TinyKind emails yet).

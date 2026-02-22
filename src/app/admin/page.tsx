@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { isAdminFromCookies } from "@/lib/adminAuth";
-import { getStorageDiagnostics, listRecentMessagesWithLatestReaction } from "@/lib/store";
+import { getStorageDiagnostics, listRecentEvents, listRecentMessagesWithLatestReaction } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
@@ -34,8 +34,12 @@ export default async function AdminPage({
   }
 
   const params = searchParams ? await searchParams : undefined;
-  const rows = await listRecentMessagesWithLatestReaction(500);
+  const [rows, events] = await Promise.all([
+    listRecentMessagesWithLatestReaction(500),
+    listRecentEvents(120),
+  ]);
   const diagnostics = await getStorageDiagnostics();
+  const failedNotifications = events.filter((event) => event.type === "reaction_notify_failed");
 
   return (
     <main className="shell min-h-screen py-8 md:py-12">
@@ -75,8 +79,24 @@ export default async function AdminPage({
           <div>Backup dir: {diagnostics.backupDir}</div>
           <div>Backups: {diagnostics.backupCount}</div>
           <div>Messages in file: {diagnostics.messageCount}</div>
+          <div>Notify failures logged: {failedNotifications.length}</div>
         </div>
       </section>
+
+      {failedNotifications.length > 0 ? (
+        <section className="panel mb-4 p-4 md:p-5">
+          <div className="text-sm text-[#263346]">
+            <strong>Recent notification failures</strong>
+          </div>
+          <ul className="mt-2 grid gap-2 text-xs text-[#4b5d77]">
+            {failedNotifications.slice(0, 10).map((event) => (
+              <li key={event.id}>
+                {formatTimestamp(event.createdAt)} · {event.senderEmail ?? "unknown"} · {event.metadata.reason ?? "unknown reason"}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="panel p-5 md:p-7">
         {rows.length === 0 ? (

@@ -80,6 +80,19 @@ Options:
    - Gmail compose URL
    - copyable email subject/body/link
 
+## Optional Sender Login
+
+- Login page: `/login`
+- Dashboard: `/dashboard`
+- Auth method: one-time email magic link (no password)
+- When signed in, send history is tied to the sender email and reminder settings can be managed in-app.
+
+## Weekly Reminder Loop
+
+- Prompt copy: `Who made your week a little better? Send them a TinyKind.`
+- Sender can configure day/time/timezone from `/dashboard`.
+- Render cron endpoint: `POST /api/reminders/run` with header `x-tinykind-cron-token`.
+
 ## Key Environment Variables
 
 - `NEXT_PUBLIC_BASE_URL` - absolute app URL used in generated links.
@@ -90,6 +103,8 @@ Options:
 - `TINYKIND_BACKUP_MAX_FILES` - max backup files to keep.
 - `RESEND_API_KEY` - optional, sends sender email notifications on reactions.
 - `TINYKIND_REACTION_FROM_EMAIL` - optional, required with `RESEND_API_KEY`.
+- `TINYKIND_AUTH_SECRET` - required for sender magic-link auth token signing.
+- `TINYKIND_CRON_TOKEN` - required for weekly reminder cron authorization.
 - `TINYKIND_ADMIN_TOKEN` - optional, protects admin/debug APIs (`/api/messages*`).
 - `ADMIN_PASSWORD` - optional but recommended, enables browser admin login at `/admin`.
 

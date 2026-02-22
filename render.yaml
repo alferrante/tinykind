@@ -14,7 +14,11 @@ services:
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
+      - key: TINYKIND_AUTH_SECRET
+        sync: false
       - key: TINYKIND_ADMIN_TOKEN
+        sync: false
+      - key: TINYKIND_CRON_TOKEN
         sync: false
       - key: RESEND_API_KEY
         sync: false
@@ -46,4 +50,17 @@ services:
       - key: BACKUP_TRIGGER_URL
         value: https://tinykind.app/api/admin/backup
       - key: TINYKIND_ADMIN_TOKEN
+        sync: false
+  - type: cron
+    name: tinykind-weekly-reminders
+    runtime: node
+    schedule: "*/15 * * * *"
+    buildCommand: ""
+    startCommand: >-
+      curl -fsS -X POST "$REMINDER_TRIGGER_URL"
+      -H "x-tinykind-cron-token: $TINYKIND_CRON_TOKEN"
+    envVars:
+      - key: REMINDER_TRIGGER_URL
+        value: https://tinykind.app/api/reminders/run
+      - key: TINYKIND_CRON_TOKEN
         sync: false

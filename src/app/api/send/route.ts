@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { getAuthenticatedSenderEmailFromRequest } from "@/lib/senderAuth";
 import { createMessage } from "@/lib/store";
 import type { Channel, UnwrapStyle } from "@/lib/types";
 
@@ -8,6 +10,7 @@ interface SendRequest {
   recipientName?: string;
   recipientContact?: string;
   body?: string;
+  website?: string;
   channel?: Channel;
   unwrapStyle?: UnwrapStyle;
 }
@@ -43,7 +46,24 @@ function buildGmailComposeUrl(to: string | null, subject: string, body: string):
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    const limiter = enforceRateLimit(request, {
+      scope: "send",
+      maxHits: 20,
+      windowMs: 60_000,
+    });
+    if (!limiter.ok) {
+      return NextResponse.json(
+        { error: "Too many send attempts. Please wait a minute and try again." },
+        { status: 429, headers: { "Retry-After": String(limiter.retryAfterSeconds) } },
+      );
+    }
+
     const payload = (await request.json()) as SendRequest;
+    if ((payload.website ?? "").trim()) {
+      return NextResponse.json({ error: "Unable to process request." }, { status: 400 });
+    }
+    const authenticatedEmail = getAuthenticatedSenderEmailFromRequest(request);
+    const senderNotifyEmail = payload.senderNotifyEmail?.trim() || authenticatedEmail || null;
     const recipientEmailInput = payload.recipientContact?.trim() ?? "";
     if (recipientEmailInput && !looksLikeEmail(recipientEmailInput)) {
       throw new Error("Recipient email must be a valid email address.");
@@ -51,7 +71,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const message = await createMessage({
       senderName: payload.senderName ?? "",
-      senderNotifyEmail: payload.senderNotifyEmail ?? null,
+      senderNotifyEmail,
       recipientName: payload.recipientName ?? "",
       recipientContact: recipientEmailInput || null,
       body: payload.body ?? "",

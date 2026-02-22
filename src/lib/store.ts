@@ -6,6 +6,10 @@ import {
   ALLOWED_REACTIONS,
   type Channel,
   type Reaction,
+  type ReminderSettings,
+  type SenderProfile,
+  type TinyKindEvent,
+  type TinyKindEventType,
   type TinyKindMessage,
   type UnwrapStyle,
 } from "@/lib/types";
@@ -13,6 +17,8 @@ import {
 interface TinyKindDb {
   messages: TinyKindMessage[];
   reactions: Reaction[];
+  senderProfiles: SenderProfile[];
+  events: TinyKindEvent[];
 }
 
 const PROD_DEFAULT_DATA_DIR = "/var/data";
@@ -28,7 +34,7 @@ const BACKUP_DIR = process.env.TINYKIND_BACKUP_DIR
 const BACKUP_ON_WRITE = process.env.TINYKIND_BACKUP_ON_WRITE !== "0";
 const BACKUP_MAX_FILES = Number(process.env.TINYKIND_BACKUP_MAX_FILES ?? "400");
 const BACKUP_RETENTION_DAYS = Number(process.env.TINYKIND_BACKUP_RETENTION_DAYS ?? "30");
-const EMPTY_DB: TinyKindDb = { messages: [], reactions: [] };
+const EMPTY_DB: TinyKindDb = { messages: [], reactions: [], senderProfiles: [], events: [] };
 
 const STYLE_OPTIONS: UnwrapStyle[] = ["A", "B", "C"];
 
@@ -51,9 +57,23 @@ async function readDb(): Promise<TinyKindDb> {
     senderNotifyEmail: message.senderNotifyEmail ?? null,
     deletedAt: message.deletedAt ?? null,
   })) as TinyKindMessage[];
+  const senderProfiles = (parsed.senderProfiles ?? []).map((profile) => ({
+    ...profile,
+    reminder: {
+      enabled: profile.reminder?.enabled ?? false,
+      weekday: Number(profile.reminder?.weekday ?? 0),
+      hour: Number(profile.reminder?.hour ?? 15),
+      minute: Number(profile.reminder?.minute ?? 0),
+      timezone: profile.reminder?.timezone ?? "America/Los_Angeles",
+      lastSentWeekKey: profile.reminder?.lastSentWeekKey ?? null,
+    },
+  })) as SenderProfile[];
+  const events = (parsed.events ?? []) as TinyKindEvent[];
   return {
     messages,
     reactions: parsed.reactions ?? [],
+    senderProfiles,
+    events,
   };
 }
 
@@ -194,6 +214,17 @@ function validateOptionalEmail(value: string | undefined | null): string | null 
   return cleaned;
 }
 
+function defaultReminderSettings(): ReminderSettings {
+  return {
+    enabled: false,
+    weekday: 0,
+    hour: 15,
+    minute: 0,
+    timezone: "America/Los_Angeles",
+    lastSentWeekKey: null,
+  };
+}
+
 function generateSlug(): string {
   return randomBytes(6).toString("base64url");
 }
@@ -205,6 +236,50 @@ function randomStyle(): UnwrapStyle {
 
 function isAllowedReaction(value: string): value is AllowedReactionEmoji {
   return ALLOWED_REACTIONS.includes(value as AllowedReactionEmoji);
+}
+
+async function logEvent(
+  db: TinyKindDb,
+  type: TinyKindEventType,
+  payload: {
+    messageId?: string | null;
+    senderEmail?: string | null;
+    metadata?: Record<string, string | number | boolean | null | undefined>;
+  } = {},
+): Promise<void> {
+  const metadata: Record<string, string> = {};
+  for (const [key, value] of Object.entries(payload.metadata ?? {})) {
+    if (value === null || value === undefined) {
+      continue;
+    }
+    metadata[key] = String(value);
+  }
+  db.events.push({
+    id: randomUUID(),
+    type,
+    createdAt: new Date().toISOString(),
+    messageId: payload.messageId ?? null,
+    senderEmail: payload.senderEmail ?? null,
+    metadata,
+  });
+}
+
+function getOrCreateSenderProfile(db: TinyKindDb, email: string): SenderProfile {
+  const normalized = trimAndLower(email);
+  const existing = db.senderProfiles.find((profile) => profile.email === normalized);
+  if (existing) {
+    return existing;
+  }
+  const now = new Date().toISOString();
+  const created: SenderProfile = {
+    id: randomUUID(),
+    email: normalized,
+    createdAt: now,
+    updatedAt: now,
+    reminder: defaultReminderSettings(),
+  };
+  db.senderProfiles.push(created);
+  return created;
 }
 
 export function makeRecipientFingerprint(seed: string): string {
@@ -268,6 +343,18 @@ export async function createMessage(input: CreateMessageInput): Promise<TinyKind
   };
 
   db.messages.push(message);
+  if (senderNotifyEmail) {
+    const profile = getOrCreateSenderProfile(db, senderNotifyEmail);
+    profile.updatedAt = now;
+  }
+  await logEvent(db, "message_created", {
+    messageId: message.id,
+    senderEmail: senderNotifyEmail,
+    metadata: {
+      slug: message.shortLinkSlug,
+      channel: message.channel,
+    },
+  });
   await writeDb(db);
   return message;
 }
@@ -289,6 +376,11 @@ export async function deleteMessageById(messageId: string): Promise<boolean> {
     return false;
   }
   target.deletedAt = new Date().toISOString();
+  await logEvent(db, "message_deleted", {
+    messageId: target.id,
+    senderEmail: target.senderNotifyEmail,
+    metadata: { slug: target.shortLinkSlug },
+  });
   await writeDb(db);
   return true;
 }
@@ -365,6 +457,13 @@ export async function upsertReaction(input: UpsertReactionInput): Promise<Upsert
     const changed = existing.emoji !== input.emoji;
     existing.emoji = input.emoji;
     existing.createdAt = now;
+    if (changed) {
+      await logEvent(db, "reaction_saved", {
+        messageId: message.id,
+        senderEmail: message.senderNotifyEmail,
+        metadata: { emoji: input.emoji, mode: "update" },
+      });
+    }
     await writeDb(db);
     return { reaction: existing, message, changed };
   }
@@ -377,6 +476,11 @@ export async function upsertReaction(input: UpsertReactionInput): Promise<Upsert
     recipientFingerprint: input.recipientFingerprint,
   };
   db.reactions.push(reaction);
+  await logEvent(db, "reaction_saved", {
+    messageId: message.id,
+    senderEmail: message.senderNotifyEmail,
+    metadata: { emoji: input.emoji, mode: "create" },
+  });
   await writeDb(db);
   return { reaction, message, changed: true };
 }
@@ -403,4 +507,189 @@ export async function getMessageWithLatestReactionBySlug(
       .filter((reaction) => reaction.messageId === message.id)
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0] ?? null;
   return { message, latestReaction };
+}
+
+export async function listRecentEvents(limit = 200): Promise<TinyKindEvent[]> {
+  const db = await readDb();
+  return [...db.events].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, limit);
+}
+
+export async function addOperationalEvent(
+  type: TinyKindEventType,
+  payload: {
+    messageId?: string | null;
+    senderEmail?: string | null;
+    metadata?: Record<string, string | number | boolean | null | undefined>;
+  } = {},
+): Promise<void> {
+  const db = await readDb();
+  await logEvent(db, type, payload);
+  await writeDb(db);
+}
+
+export async function listMessagesBySenderEmail(
+  senderEmail: string,
+  limit = 200,
+): Promise<MessageWithLatestReaction[]> {
+  const normalized = trimAndLower(senderEmail);
+  const rows = await listRecentMessagesWithLatestReaction(limit * 3);
+  return rows
+    .filter(({ message }) => (message.senderNotifyEmail ? message.senderNotifyEmail === normalized : false))
+    .slice(0, limit);
+}
+
+export async function ensureSenderProfile(email: string): Promise<SenderProfile> {
+  const normalized = trimAndLower(email);
+  const db = await readDb();
+  const profile = getOrCreateSenderProfile(db, normalized);
+  profile.updatedAt = new Date().toISOString();
+  await writeDb(db);
+  return profile;
+}
+
+export async function getSenderProfile(email: string): Promise<SenderProfile | null> {
+  const normalized = trimAndLower(email);
+  const db = await readDb();
+  return db.senderProfiles.find((profile) => profile.email === normalized) ?? null;
+}
+
+export async function updateReminderSettings(
+  email: string,
+  input: {
+    enabled: boolean;
+    weekday: number;
+    hour: number;
+    minute: number;
+    timezone: string;
+  },
+): Promise<SenderProfile> {
+  const normalized = trimAndLower(email);
+  if (!Number.isInteger(input.weekday) || input.weekday < 0 || input.weekday > 6) {
+    throw new Error("weekday must be between 0 and 6.");
+  }
+  if (!Number.isInteger(input.hour) || input.hour < 0 || input.hour > 23) {
+    throw new Error("hour must be between 0 and 23.");
+  }
+  if (!Number.isInteger(input.minute) || input.minute < 0 || input.minute > 59) {
+    throw new Error("minute must be between 0 and 59.");
+  }
+  const timezone = input.timezone.trim();
+  if (!timezone) {
+    throw new Error("timezone is required.");
+  }
+
+  const db = await readDb();
+  const profile = getOrCreateSenderProfile(db, normalized);
+  profile.reminder = {
+    ...profile.reminder,
+    enabled: input.enabled,
+    weekday: input.weekday,
+    hour: input.hour,
+    minute: input.minute,
+    timezone,
+  };
+  profile.updatedAt = new Date().toISOString();
+  await logEvent(db, "reminder_settings_updated", {
+    senderEmail: normalized,
+    metadata: {
+      enabled: input.enabled,
+      weekday: input.weekday,
+      hour: input.hour,
+      minute: input.minute,
+      timezone,
+    },
+  });
+  await writeDb(db);
+  return profile;
+}
+
+function getIsoWeekKey(date: Date, timezone: string): string {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "short",
+  });
+  const parts = formatter.formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value ?? "0000";
+  const month = parts.find((part) => part.type === "month")?.value ?? "01";
+  const day = parts.find((part) => part.type === "day")?.value ?? "01";
+  const weekday = parts.find((part) => part.type === "weekday")?.value ?? "Sun";
+  return `${year}-${month}-${day}-${weekday}`;
+}
+
+function getLocalTimeParts(date: Date, timezone: string): { weekday: number; hour: number; minute: number } {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(date);
+  const weekdayLabel = parts.find((part) => part.type === "weekday")?.value ?? "Sun";
+  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? "0");
+  const minute = Number(parts.find((part) => part.type === "minute")?.value ?? "0");
+  const weekdayMap: Record<string, number> = {
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+  };
+  return {
+    weekday: weekdayMap[weekdayLabel] ?? 0,
+    hour,
+    minute,
+  };
+}
+
+export interface DueReminder {
+  senderEmail: string;
+  profileId: string;
+}
+
+export async function listDueReminders(now = new Date()): Promise<DueReminder[]> {
+  const db = await readDb();
+  const due: DueReminder[] = [];
+  for (const profile of db.senderProfiles) {
+    const reminder = profile.reminder ?? defaultReminderSettings();
+    if (!reminder.enabled) {
+      continue;
+    }
+    const local = getLocalTimeParts(now, reminder.timezone);
+    if (local.weekday !== reminder.weekday) {
+      continue;
+    }
+    const minuteDelta = Math.abs(local.hour * 60 + local.minute - (reminder.hour * 60 + reminder.minute));
+    if (minuteDelta > 10) {
+      continue;
+    }
+    const weekKey = getIsoWeekKey(now, reminder.timezone);
+    if (reminder.lastSentWeekKey === weekKey) {
+      continue;
+    }
+    due.push({ senderEmail: profile.email, profileId: profile.id });
+  }
+  return due;
+}
+
+export async function markReminderSent(senderEmail: string, at = new Date()): Promise<void> {
+  const normalized = trimAndLower(senderEmail);
+  const db = await readDb();
+  const profile = db.senderProfiles.find((item) => item.email === normalized);
+  if (!profile) {
+    return;
+  }
+  const timezone = profile.reminder?.timezone || "America/Los_Angeles";
+  const weekKey = getIsoWeekKey(at, timezone);
+  profile.reminder = {
+    ...(profile.reminder ?? defaultReminderSettings()),
+    lastSentWeekKey: weekKey,
+  };
+  profile.updatedAt = at.toISOString();
+  await writeDb(db);
 }
