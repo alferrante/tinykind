@@ -69,9 +69,13 @@ async function readDb(): Promise<TinyKindDb> {
     },
   })) as SenderProfile[];
   const events = (parsed.events ?? []) as TinyKindEvent[];
+  const reactions = (parsed.reactions ?? []).map((reaction) => ({
+    ...reaction,
+    notifiedAt: reaction.notifiedAt ?? null,
+  })) as Reaction[];
   return {
     messages,
-    reactions: parsed.reactions ?? [],
+    reactions,
     senderProfiles,
     events,
   };
@@ -458,6 +462,10 @@ export async function upsertReaction(input: UpsertReactionInput): Promise<Upsert
     existing.emoji = input.emoji;
     existing.createdAt = now;
     if (changed) {
+      // Force notification attempt for the new reaction selection.
+      existing.notifiedAt = null;
+    }
+    if (changed) {
       await logEvent(db, "reaction_saved", {
         messageId: message.id,
         senderEmail: message.senderNotifyEmail,
@@ -474,6 +482,7 @@ export async function upsertReaction(input: UpsertReactionInput): Promise<Upsert
     emoji: input.emoji,
     createdAt: now,
     recipientFingerprint: input.recipientFingerprint,
+    notifiedAt: null,
   };
   db.reactions.push(reaction);
   await logEvent(db, "reaction_saved", {
@@ -483,6 +492,16 @@ export async function upsertReaction(input: UpsertReactionInput): Promise<Upsert
   });
   await writeDb(db);
   return { reaction, message, changed: true };
+}
+
+export async function markReactionNotificationSent(reactionId: string): Promise<void> {
+  const db = await readDb();
+  const reaction = db.reactions.find((item) => item.id === reactionId);
+  if (!reaction) {
+    return;
+  }
+  reaction.notifiedAt = new Date().toISOString();
+  await writeDb(db);
 }
 
 export async function getLatestReactionForMessage(messageId: string): Promise<Reaction | null> {

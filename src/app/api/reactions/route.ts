@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { enforceRateLimit } from "@/lib/rateLimit";
 import { sendReactionNotification } from "@/lib/reactionNotification";
-import { addOperationalEvent, makeRecipientFingerprint, upsertReaction } from "@/lib/store";
+import { addOperationalEvent, makeRecipientFingerprint, markReactionNotificationSent, upsertReaction } from "@/lib/store";
 
 interface ReactionRequest {
   slug?: string;
@@ -48,7 +48,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       sent: false,
     };
 
-    if (changed && message.senderNotifyEmail) {
+    const shouldAttemptNotification = Boolean(message.senderNotifyEmail) && (changed || !reaction.notifiedAt);
+    if (shouldAttemptNotification && message.senderNotifyEmail) {
+      const retryUnchanged = !changed && !reaction.notifiedAt;
       notification.attempted = true;
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? request.nextUrl.origin;
       const messageUrl = `${baseUrl}/t/${message.shortLinkSlug}`;
@@ -71,19 +73,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             senderEmail: message.senderNotifyEmail,
             metadata: {
               slug,
+              changed,
+              retryUnchanged,
               reason: result.reason ?? "unknown",
             },
           });
           console.warn("[tinykind] reaction notification not sent", {
             slug,
             toEmail: message.senderNotifyEmail,
+            changed,
+            retryUnchanged,
             reason: result.reason ?? "unknown",
           });
         } else {
+          await markReactionNotificationSent(reaction.id);
           await addOperationalEvent("reaction_notify_sent", {
             messageId: message.id,
             senderEmail: message.senderNotifyEmail,
-            metadata: { slug, emoji: reaction.emoji },
+            metadata: { slug, emoji: reaction.emoji, changed, retryUnchanged },
           });
         }
       } catch (notifyError) {
@@ -97,6 +104,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           senderEmail: message.senderNotifyEmail,
           metadata: {
             slug,
+            changed,
+            retryUnchanged,
             reason: notification.reason ?? "unknown-error",
           },
         });

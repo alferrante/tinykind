@@ -36,6 +36,7 @@ export interface Reaction {
   emoji: AllowedReactionEmoji;
   createdAt: string;
   recipientFingerprint: string;
+  notifiedAt: string | null;
 }
 
 export type TinyKindEventType =
