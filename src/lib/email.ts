@@ -8,6 +8,9 @@ interface SendEmailInput {
 export interface EmailSendResult {
   sent: boolean;
   reason?: string;
+  attempts: number;
+  durationMs: number;
+  providerMessageId?: string;
 }
 
 function escapeHtml(value: string): string {
@@ -54,10 +57,11 @@ async function postResendEmail(
 }
 
 export async function sendTinyKindEmail(input: SendEmailInput): Promise<EmailSendResult> {
+  const startedAt = Date.now();
   const apiKey = process.env.RESEND_API_KEY?.trim();
   const fromEmail = process.env.TINYKIND_REACTION_FROM_EMAIL?.trim();
   if (!apiKey || !fromEmail) {
-    return { sent: false, reason: "missing-email-config" };
+    return { sent: false, reason: "missing-email-config", attempts: 0, durationMs: Date.now() - startedAt };
   }
   const timeoutMs = Number(process.env.TINYKIND_EMAIL_TIMEOUT_MS ?? "10000");
   const maxAttempts = Math.max(1, Number(process.env.TINYKIND_EMAIL_MAX_ATTEMPTS ?? "3"));
@@ -74,7 +78,19 @@ export async function sendTinyKindEmail(input: SendEmailInput): Promise<EmailSen
     try {
       const response = await postResendEmail(apiKey, payload, timeoutMs);
       if (response.ok) {
-        return { sent: true };
+        let providerMessageId: string | undefined;
+        try {
+          const json = (await response.json()) as { id?: string };
+          providerMessageId = typeof json?.id === "string" ? json.id : undefined;
+        } catch {
+          providerMessageId = undefined;
+        }
+        return {
+          sent: true,
+          attempts: attempt,
+          durationMs: Date.now() - startedAt,
+          providerMessageId,
+        };
       }
 
       let details = "";
@@ -87,7 +103,12 @@ export async function sendTinyKindEmail(input: SendEmailInput): Promise<EmailSen
       lastReason = compact ? `resend-${response.status}: ${compact}` : `resend-${response.status}`;
 
       if (!shouldRetryStatus(response.status) || attempt === maxAttempts) {
-        return { sent: false, reason: lastReason };
+        return {
+          sent: false,
+          reason: lastReason,
+          attempts: attempt,
+          durationMs: Date.now() - startedAt,
+        };
       }
     } catch (error) {
       if (error instanceof Error) {
@@ -96,12 +117,22 @@ export async function sendTinyKindEmail(input: SendEmailInput): Promise<EmailSen
         lastReason = "fetch-error";
       }
       if (attempt === maxAttempts) {
-        return { sent: false, reason: lastReason };
+        return {
+          sent: false,
+          reason: lastReason,
+          attempts: attempt,
+          durationMs: Date.now() - startedAt,
+        };
       }
     }
 
     await pause(Math.min(250 * 2 ** (attempt - 1), 2000));
   }
 
-  return { sent: false, reason: lastReason };
+  return {
+    sent: false,
+    reason: lastReason,
+    attempts: maxAttempts,
+    durationMs: Date.now() - startedAt,
+  };
 }

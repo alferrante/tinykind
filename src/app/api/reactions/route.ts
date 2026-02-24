@@ -75,6 +75,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
               slug,
               changed,
               retryUnchanged,
+              attempts: result.attempts,
+              durationMs: result.durationMs,
+              providerMessageId: result.providerMessageId ?? null,
               reason: result.reason ?? "unknown",
             },
           });
@@ -83,6 +86,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             toEmail: message.senderNotifyEmail,
             changed,
             retryUnchanged,
+            attempts: result.attempts,
+            durationMs: result.durationMs,
+            providerMessageId: result.providerMessageId ?? null,
             reason: result.reason ?? "unknown",
           });
         } else {
@@ -90,7 +96,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           await addOperationalEvent("reaction_notify_sent", {
             messageId: message.id,
             senderEmail: message.senderNotifyEmail,
-            metadata: { slug, emoji: reaction.emoji, changed, retryUnchanged },
+            metadata: {
+              slug,
+              emoji: reaction.emoji,
+              changed,
+              retryUnchanged,
+              attempts: result.attempts,
+              durationMs: result.durationMs,
+              providerMessageId: result.providerMessageId ?? null,
+            },
           });
         }
       } catch (notifyError) {

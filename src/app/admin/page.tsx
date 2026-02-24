@@ -40,6 +40,7 @@ export default async function AdminPage({
   ]);
   const diagnostics = await getStorageDiagnostics();
   const failedNotifications = events.filter((event) => event.type === "reaction_notify_failed");
+  const sentNotifications = events.filter((event) => event.type === "reaction_notify_sent");
 
   return (
     <main className="shell min-h-screen py-8 md:py-12">
@@ -92,6 +93,22 @@ export default async function AdminPage({
             {failedNotifications.slice(0, 10).map((event) => (
               <li key={event.id}>
                 {formatTimestamp(event.createdAt)} · {event.senderEmail ?? "unknown"} · {event.metadata.reason ?? "unknown reason"}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {sentNotifications.length > 0 ? (
+        <section className="panel mb-4 p-4 md:p-5">
+          <div className="text-sm text-[#263346]">
+            <strong>Recent notification sends</strong>
+          </div>
+          <ul className="mt-2 grid gap-2 text-xs text-[#4b5d77]">
+            {sentNotifications.slice(0, 10).map((event) => (
+              <li key={event.id}>
+                {formatTimestamp(event.createdAt)} · {event.senderEmail ?? "unknown"} · {event.metadata.emoji ?? "?"} ·
+                {" "}duration {event.metadata.durationMs ?? "?"}ms · attempts {event.metadata.attempts ?? "?"}
               </li>
             ))}
           </ul>
