@@ -9,6 +9,7 @@ description: "Run TinyKind as a local skill that creates gratitude notes, calls 
 - Read `references/tinykind-mvp-spec.md` for non-negotiable MVP goals, flows, data model, AI behavior, and edge cases.
 - Read `references/hosted-api-contract.md` for required hosted endpoint and response fields.
 - Use `scripts/tinykind_send.py` for the default send flow.
+- Use `scripts/send_imessage.sh` for SMS/iMessage sharing after URL generation.
 - For weekly reminders on macOS, use `scripts/tinykind_schedule_reminder_macos.py`.
 - Keep scope aligned to MVP goals; flag any request that drifts into non-goals.
 - Prefer minimal friction, fast send flow, and mobile-first recipient experience.
@@ -29,6 +30,12 @@ description: "Run TinyKind as a local skill that creates gratitude notes, calls 
 - If recipient contact is not an email address, leave Gmail `to` blank and let sender choose recipient in compose.
 - When running the send flow, execute:
   - `python3 scripts/tinykind_send.py --from-name "<sender>" --notify-email "<sender_email_optional>" --to-name "<recipient>" --to-contact "<email_or_phone>" --body "<note>"`
+- For text/iMessage sharing, use the local helper with the generated landing URL:
+  - Draft only (recommended, user taps send):
+    - `bash scripts/send_imessage.sh --to "<phone>" --body "You've received a TinyKind from <sender>." --link "<message_url>" --mode compose`
+  - Auto-send (only when explicitly requested):
+    - `bash scripts/send_imessage.sh --to "<phone>" --body "You've received a TinyKind from <sender>." --link "<message_url>" --mode send`
+- When SMS is requested, default to `--mode compose` and confirm before using `--mode send`.
 - `TINYKIND_API_BASE_URL` must be set; `TINYKIND_API_KEY` is optional.
 - `TINYKIND_SENDER_NOTIFY_EMAIL` can set a default sender notification email for local skill runs.
 - For weekly reminders:
