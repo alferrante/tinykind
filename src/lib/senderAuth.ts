@@ -132,3 +132,22 @@ export function getAuthenticatedSenderEmailFromRequest(request: NextRequest): st
   return verifySessionToken(raw)?.email ?? null;
 }
 
+export function isGoogleAuthConfigured(): boolean {
+  return Boolean(process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim());
+}
+
+export function getGoogleClientId(): string {
+  return process.env.GOOGLE_CLIENT_ID?.trim() ?? "";
+}
+
+export function getGoogleClientSecret(): string {
+  return process.env.GOOGLE_CLIENT_SECRET?.trim() ?? "";
+}
+
+export function getGoogleRedirectUri(baseUrl: string): string {
+  const configured = process.env.GOOGLE_REDIRECT_URI?.trim();
+  if (configured) {
+    return configured;
+  }
+  return `${baseUrl.replace(/\/$/, "")}/api/auth/google/callback`;
+}

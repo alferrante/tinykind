@@ -48,7 +48,7 @@ Send script:
 
 - `.agents/skills/tinykind/scripts/tinykind_send.py`
 
-Example run:
+Example run (link mode, default):
 
 ```bash
 python3 .agents/skills/tinykind/scripts/tinykind_send.py \
@@ -56,7 +56,19 @@ python3 .agents/skills/tinykind/scripts/tinykind_send.py \
   --from-name "Your Name" \
   --notify-email "you@example.com" \
   --to-name "Recipient Name" \
-  --to-contact "recipient@example.com" \
+  --body "Thanks for showing up this week."
+```
+
+Example run (email mode):
+
+```bash
+python3 .agents/skills/tinykind/scripts/tinykind_send.py \
+  --api-base-url https://tinykind-web.onrender.com \
+  --from-name "Your Name" \
+  --notify-email "you@example.com" \
+  --to-name "Recipient Name" \
+  --to-email "recipient@example.com" \
+  --delivery-mode email \
   --body "Thanks for showing up this week."
 ```
 
@@ -67,7 +79,7 @@ Automation is supported, but it is **not auto-created** by default.
 Options:
 
 - Codex automation: create a weekly automation with prompt  
-  `Who do you feel grateful for this week? Let's tell them!`
+  `Who made your week a little better? Send them a TinyKind.`
 - macOS fallback: use  
   `.agents/skills/tinykind/scripts/tinykind_schedule_reminder_macos.py`
 
@@ -84,7 +96,9 @@ Options:
 
 - Login page: `/login`
 - Dashboard: `/dashboard`
-- Auth method: one-time email magic link (no password)
+- Auth methods:
+  - Google OAuth (when configured)
+  - one-time email magic link fallback
 - When signed in, send history is tied to the sender email and reminder settings can be managed in-app.
 
 ## Weekly Reminder Loop
@@ -104,7 +118,11 @@ Options:
 - `RESEND_API_KEY` - optional, sends sender email notifications on reactions.
 - `TINYKIND_REACTION_FROM_EMAIL` - optional, required with `RESEND_API_KEY`.
 - `TINYKIND_AUTH_SECRET` - required for sender magic-link auth token signing.
+- `GOOGLE_CLIENT_ID` - optional, enables Google sign-in.
+- `GOOGLE_CLIENT_SECRET` - optional, enables Google sign-in.
+- `GOOGLE_REDIRECT_URI` - optional; defaults to `<base-url>/api/auth/google/callback`.
 - `TINYKIND_CRON_TOKEN` - required for weekly reminder cron authorization.
+- `OPEN_NOTIFY_ENABLED` - set `1` to email sender when recipient opens a TinyKind.
 - `TINYKIND_ADMIN_TOKEN` - optional, protects admin/debug APIs (`/api/messages*`).
 - `ADMIN_PASSWORD` - optional but recommended, enables browser admin login at `/admin`.
 

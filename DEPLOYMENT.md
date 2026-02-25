@@ -49,7 +49,11 @@ Set these in Render service settings:
 - `TINYKIND_ADMIN_TOKEN=<random-long-secret>` (protects admin/debug message APIs)
 - `ADMIN_PASSWORD=<strong-admin-password>` (enables private `/admin` browser login)
 - `TINYKIND_AUTH_SECRET=<long-random-secret>` (sender magic-link login signing)
+- `GOOGLE_CLIENT_ID=<google-oauth-client-id>` (optional, enables Google sign-in)
+- `GOOGLE_CLIENT_SECRET=<google-oauth-client-secret>` (optional, enables Google sign-in)
+- `GOOGLE_REDIRECT_URI=https://tinykind.app/api/auth/google/callback` (optional override)
 - `TINYKIND_CRON_TOKEN=<random-long-secret>` (authorizes reminder cron calls)
+- `OPEN_NOTIFY_ENABLED=0` (set to `1` when ready to email sender on recipient open)
 - `RESEND_API_KEY=<resend-api-key>` (optional, enables sender reaction notification emails)
 - `TINYKIND_REACTION_FROM_EMAIL="TinyKind <reactions@tinykind.app>"` (optional, required with `RESEND_API_KEY`)
 
@@ -88,9 +92,13 @@ Wait for DNS + SSL provisioning, then verify both:
    - Confirm recent submissions render in `/admin`
 7. Verify sender login + dashboard:
    - Open `/login`
-   - Request magic link and sign in
+   - Sign in with Google (if configured) or request magic link and sign in
    - Confirm `/dashboard` shows sender history and reminder settings
-8. In `/admin`, click **Backup now** and confirm backups count increases.
+8. Verify recipient-open notifications (when `OPEN_NOTIFY_ENABLED=1`):
+   - Open a `/t/<slug>` link as recipient
+   - Confirm sender receives an open notification email
+   - Re-open within 30 minutes and confirm no duplicate open-notification email
+9. In `/admin`, click **Backup now** and confirm backups count increases.
 
 ## 6. Current MVP Limits
 

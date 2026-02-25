@@ -5,6 +5,8 @@ import {
   type AllowedReactionEmoji,
   ALLOWED_REACTIONS,
   type Channel,
+  type DeliveryMode,
+  type MessageOpen,
   type Reaction,
   type ReminderSettings,
   type SenderProfile,
@@ -17,6 +19,7 @@ import {
 interface TinyKindDb {
   messages: TinyKindMessage[];
   reactions: Reaction[];
+  opens: MessageOpen[];
   senderProfiles: SenderProfile[];
   events: TinyKindEvent[];
 }
@@ -34,7 +37,13 @@ const BACKUP_DIR = process.env.TINYKIND_BACKUP_DIR
 const BACKUP_ON_WRITE = process.env.TINYKIND_BACKUP_ON_WRITE !== "0";
 const BACKUP_MAX_FILES = Number(process.env.TINYKIND_BACKUP_MAX_FILES ?? "400");
 const BACKUP_RETENTION_DAYS = Number(process.env.TINYKIND_BACKUP_RETENTION_DAYS ?? "30");
-const EMPTY_DB: TinyKindDb = { messages: [], reactions: [], senderProfiles: [], events: [] };
+const EMPTY_DB: TinyKindDb = {
+  messages: [],
+  reactions: [],
+  opens: [],
+  senderProfiles: [],
+  events: [],
+};
 
 const STYLE_OPTIONS: UnwrapStyle[] = ["A", "B", "C"];
 
@@ -55,6 +64,7 @@ async function readDb(): Promise<TinyKindDb> {
     ...message,
     recipientContact: message.recipientContact ?? null,
     senderNotifyEmail: message.senderNotifyEmail ?? null,
+    deliveryMode: message.deliveryMode === "email" ? "email" : "link",
     deletedAt: message.deletedAt ?? null,
   })) as TinyKindMessage[];
   const senderProfiles = (parsed.senderProfiles ?? []).map((profile) => ({
@@ -73,9 +83,14 @@ async function readDb(): Promise<TinyKindDb> {
     ...reaction,
     notifiedAt: reaction.notifiedAt ?? null,
   })) as Reaction[];
+  const opens = (parsed.opens ?? []).map((entry) => ({
+    ...entry,
+    notifiedAt: entry.notifiedAt ?? null,
+  })) as MessageOpen[];
   return {
     messages,
     reactions,
+    opens,
     senderProfiles,
     events,
   };
@@ -296,6 +311,7 @@ export interface CreateMessageInput {
   recipientName: string;
   recipientContact?: string | null;
   body: string;
+  deliveryMode?: DeliveryMode;
   channel?: Channel;
   unwrapStyle?: UnwrapStyle;
   rawText?: string | null;
@@ -324,6 +340,8 @@ export async function createMessage(input: CreateMessageInput): Promise<TinyKind
   }
 
   const now = new Date().toISOString();
+  const deliveryMode: DeliveryMode = input.deliveryMode === "email" ? "email" : "link";
+  const channel: Channel = input.channel ?? (deliveryMode === "email" ? "email" : "sms");
   const message: TinyKindMessage = {
     id: randomUUID(),
     userId: "local-dev-user",
@@ -332,7 +350,8 @@ export async function createMessage(input: CreateMessageInput): Promise<TinyKind
     senderNotifyEmail,
     recipientName,
     recipientContact: recipientContact || null,
-    channel: input.channel ?? "sms",
+    channel,
+    deliveryMode,
     createdAt: now,
     rawText: input.rawText ?? null,
     voiceUrl: input.voiceUrl ?? null,
@@ -357,6 +376,7 @@ export async function createMessage(input: CreateMessageInput): Promise<TinyKind
     metadata: {
       slug: message.shortLinkSlug,
       channel: message.channel,
+      deliveryMode: message.deliveryMode,
     },
   });
   await writeDb(db);
@@ -557,6 +577,14 @@ export async function listMessagesBySenderEmail(
     .slice(0, limit);
 }
 
+export async function countSentBySenderEmail(senderEmail: string): Promise<number> {
+  const normalized = trimAndLower(senderEmail);
+  const db = await readDb();
+  return db.messages.filter(
+    (message) => !message.deletedAt && message.senderNotifyEmail && message.senderNotifyEmail === normalized,
+  ).length;
+}
+
 export async function ensureSenderProfile(email: string): Promise<SenderProfile> {
   const normalized = trimAndLower(email);
   const db = await readDb();
@@ -710,5 +738,68 @@ export async function markReminderSent(senderEmail: string, at = new Date()): Pr
     lastSentWeekKey: weekKey,
   };
   profile.updatedAt = at.toISOString();
+  await writeDb(db);
+}
+
+interface RecordOpenInput {
+  slug: string;
+  recipientFingerprint: string;
+}
+
+export async function recordOpen(input: RecordOpenInput): Promise<{
+  open: MessageOpen;
+  message: TinyKindMessage;
+  shouldNotify: boolean;
+}> {
+  const db = await readDb();
+  const message = db.messages.find(
+    (item) => item.shortLinkSlug === input.slug && item.status === "sent" && !item.deletedAt,
+  );
+  if (!message) {
+    throw new Error("Message not found.");
+  }
+
+  const now = new Date();
+  const cooldownMs = 30 * 60 * 1000;
+  const lastNotifiedForFingerprint = db.opens
+    .filter(
+      (entry) =>
+        entry.messageId === message.id &&
+        entry.recipientFingerprint === input.recipientFingerprint &&
+        entry.notifiedAt,
+    )
+    .sort((a, b) => (a.openedAt < b.openedAt ? 1 : -1))[0];
+
+  const shouldNotify =
+    !lastNotifiedForFingerprint ||
+    now.getTime() - new Date(lastNotifiedForFingerprint.notifiedAt as string).getTime() >= cooldownMs;
+
+  const open: MessageOpen = {
+    id: randomUUID(),
+    messageId: message.id,
+    recipientFingerprint: input.recipientFingerprint,
+    openedAt: now.toISOString(),
+    notifiedAt: null,
+  };
+  db.opens.push(open);
+  await logEvent(db, "message_opened", {
+    messageId: message.id,
+    senderEmail: message.senderNotifyEmail,
+    metadata: {
+      slug: message.shortLinkSlug,
+      fingerprint: input.recipientFingerprint,
+    },
+  });
+  await writeDb(db);
+  return { open, message, shouldNotify };
+}
+
+export async function markOpenNotificationSent(openId: string): Promise<void> {
+  const db = await readDb();
+  const open = db.opens.find((item) => item.id === openId);
+  if (!open) {
+    return;
+  }
+  open.notifiedAt = new Date().toISOString();
   await writeDb(db);
 }

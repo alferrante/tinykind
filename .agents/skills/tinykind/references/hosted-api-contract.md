@@ -13,9 +13,9 @@ The local skill calls your hosted TinyKind backend.
   "senderName": "Angela",
   "senderNotifyEmail": "angela@example.com",
   "recipientName": "Andrew Hillis",
-  "recipientContact": "andrew@example.com",
+  "recipientEmail": "andrew@example.com",
   "body": "Thanks for showing up this week.",
-  "channel": "email"
+  "deliveryMode": "email"
 }
 ```
 
@@ -24,16 +24,18 @@ The local skill calls your hosted TinyKind backend.
 ```json
 {
   "messageUrl": "https://tinykind.yourdomain.com/t/abc123",
-  "gmailComposeUrl": "https://mail.google.com/mail/?...",
+  "deliveryMode": "email",
+  "gmailComposeUrl": "https://mail.google.com/mail/?... or null in link mode",
   "emailSubject": "A TinyKind from Angela",
-  "emailBody": "Hi Andrew Hillis,...",
-  "sharePreview": "Thanks for showing up this week...."
+  "emailBody": "You've received a TinyKind from Angela: https://tinykind.yourdomain.com/t/abc123",
+  "sharePreview": "You've received a TinyKind from Angela: https://tinykind.yourdomain.com/t/abc123"
 }
 ```
 
 The skill can still work if only `messageUrl` is returned, but Gmail draft/copy flow is best when all fields above are present.
 
 `senderNotifyEmail` is optional. When provided, recipient emoji reactions can trigger sender notification emails.
+Open/access notifications are controlled by server env var `OPEN_NOTIFY_ENABLED`.
 
 ## Auth
 

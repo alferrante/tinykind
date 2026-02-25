@@ -1,21 +1,20 @@
 import { sendTinyKindEmail } from "@/lib/email";
 
-interface ReactionNotificationInput {
+interface OpenNotificationInput {
   toEmail: string;
   senderName: string;
   recipientName: string;
-  emoji: string;
   messageUrl: string;
 }
 
-export async function sendReactionNotification(
-  input: ReactionNotificationInput,
+export async function sendOpenNotification(
+  input: OpenNotificationInput,
 ): Promise<{ sent: boolean; reason?: string; attempts: number; durationMs: number; providerMessageId?: string }> {
-  const subject = `${input.recipientName} reacted ${input.emoji}`;
+  const subject = `${input.recipientName} opened your TinyKind`;
   const text = [
     `Hi ${input.senderName},`,
     "",
-    `${input.recipientName} reacted ${input.emoji} to your TinyKind.`,
+    `${input.recipientName} opened your TinyKind.`,
     `View it: ${input.messageUrl}`,
     "",
     "— tinykind",
@@ -23,7 +22,7 @@ export async function sendReactionNotification(
 
   const html = [
     `<p>Hi ${escapeHtml(input.senderName)},</p>`,
-    `<p><strong>${escapeHtml(input.recipientName)}</strong> reacted ${escapeHtml(input.emoji)} to your TinyKind.</p>`,
+    `<p><strong>${escapeHtml(input.recipientName)}</strong> opened your TinyKind.</p>`,
     `<p><a href="${escapeHtml(input.messageUrl)}">View TinyKind</a></p>`,
     "<p>— tinykind</p>",
   ].join("");

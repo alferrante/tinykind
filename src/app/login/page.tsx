@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { getAuthenticatedSenderEmail } from "@/lib/senderAuth";
+import { getAuthenticatedSenderEmail, isGoogleAuthConfigured } from "@/lib/senderAuth";
 import LoginCard from "@/components/LoginCard";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +22,7 @@ export default async function LoginPage({
   const params = searchParams ? await searchParams : undefined;
   const error = params?.error;
   const email = params?.email ?? "";
+  const googleEnabled = isGoogleAuthConfigured();
 
   return (
     <main className="shell min-h-screen py-8 md:py-12">
@@ -30,10 +31,16 @@ export default async function LoginPage({
       </header>
 
       <div className="max-w-[560px]">
-        <LoginCard initialEmail={email} />
+        <LoginCard googleEnabled={googleEnabled} initialEmail={email} />
         {error ? (
           <div className="mt-3 rounded-lg border border-[#a22d2d55] bg-[#fff5f5] px-4 py-3 text-sm text-[#a22d2d]">
-            Sign-in link is invalid or expired. Request a new one.
+            {error === "google_unavailable"
+              ? "Google sign-in is not configured yet. Use email sign-in for now."
+              : error === "google_state_invalid"
+                ? "Google sign-in session expired. Try again."
+                : error === "google_failed"
+                  ? "Google sign-in failed. Try again or use email sign-in."
+                  : "Sign-in link is invalid or expired. Request a new one."}
           </div>
         ) : null}
       </div>

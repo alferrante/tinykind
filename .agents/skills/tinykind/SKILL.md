@@ -17,6 +17,7 @@ description: "Run TinyKind as a local skill that creates gratitude notes, calls 
 ## Workflow
 - Map the request to spec sections and summarize the applicable constraints before implementing.
 - Validate that sender flow stays within 60 seconds and avoids extra steps.
+- Default to a minimal compose flow: From, To, Message.
 - For direct TinyKind note writing requests, output only a polished `body` by default; include a headline only if the user explicitly asks for one.
 - Apply light editing only: fix typos/clarity, preserve tone/wording, and do not rewrite into formal or cliche language.
 - Implement AI polish exactly as specified: preserve voice, no invented facts, and keep edits near-verbatim.
@@ -25,11 +26,14 @@ description: "Run TinyKind as a local skill that creates gratitude notes, calls 
 - Ensure delete behavior: deleted messages 404, no open events table.
 - On each TinyKind send request, create a new message record and a fresh unique slug URL; do not reuse existing landing links.
 - Prefer hosted API endpoint `POST /api/send` to create the message + URL.
-- Default sharing flow: use returned Gmail compose URL plus copyable email subject/body.
+- Default sharing flow: `deliveryMode=link` and return copyable link/share text.
+- Email delivery flow: `deliveryMode=email` and use returned Gmail compose URL.
 - Optional reaction notifications: pass sender email so recipient emoji reactions trigger an email to sender.
-- If recipient contact is not an email address, leave Gmail `to` blank and let sender choose recipient in compose.
 - When running the send flow, execute:
-  - `python3 scripts/tinykind_send.py --from-name "<sender>" --notify-email "<sender_email_optional>" --to-name "<recipient>" --to-contact "<email_or_phone>" --body "<note>"`
+  - Link mode (default):
+    - `python3 scripts/tinykind_send.py --from-name "<sender>" --notify-email "<sender_email_optional>" --to-name "<recipient>" --body "<note>"`
+  - Email mode:
+    - `python3 scripts/tinykind_send.py --from-name "<sender>" --notify-email "<sender_email_optional>" --to-name "<recipient>" --to-email "<recipient_email>" --delivery-mode email --body "<note>"`
 - For text/iMessage sharing, use the local helper with the generated landing URL:
   - Draft only (recommended, user taps send):
     - `bash scripts/send_imessage.sh --to "<phone>" --body "You've received a TinyKind from <sender>." --link "<message_url>" --mode compose`
@@ -40,7 +44,7 @@ description: "Run TinyKind as a local skill that creates gratitude notes, calls 
 - `TINYKIND_SENDER_NOTIFY_EMAIL` can set a default sender notification email for local skill runs.
 - For weekly reminders:
   - In Codex app, prefer a weekly automation at user-selected day/time with prompt text:
-    - `Who do you feel grateful for this week? Let's tell them!`
+    - `Who made your week a little better? Send them a TinyKind.`
   - For local macOS fallback, run:
     - `python3 scripts/tinykind_schedule_reminder_macos.py install --weekday sun --time 17:00`
 - For recipient UX, implement the “Envelope Peel” unwrap animation and emoji-only reactions.

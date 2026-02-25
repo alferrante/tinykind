@@ -4,6 +4,8 @@ export type Channel = "sms" | "email";
 
 export type MessageStatus = "draft" | "sent";
 
+export type DeliveryMode = "link" | "email";
+
 export const ALLOWED_REACTIONS = ["❤️", "😊", "😭", "🥹", "😌", "🙏", "🫶", "✨"] as const;
 
 export type AllowedReactionEmoji = (typeof ALLOWED_REACTIONS)[number];
@@ -17,6 +19,7 @@ export interface TinyKindMessage {
   recipientName: string;
   recipientContact: string | null;
   channel: Channel;
+  deliveryMode: DeliveryMode;
   createdAt: string;
   rawText: string | null;
   voiceUrl: string | null;
@@ -28,6 +31,14 @@ export interface TinyKindMessage {
   shortLinkSlug: string;
   status: MessageStatus;
   deletedAt: string | null;
+}
+
+export interface MessageOpen {
+  id: string;
+  messageId: string;
+  recipientFingerprint: string;
+  openedAt: string;
+  notifiedAt: string | null;
 }
 
 export interface Reaction {
@@ -43,8 +54,11 @@ export type TinyKindEventType =
   | "message_created"
   | "message_deleted"
   | "reaction_saved"
+  | "message_opened"
   | "reaction_notify_sent"
   | "reaction_notify_failed"
+  | "open_notify_sent"
+  | "open_notify_failed"
   | "auth_link_requested"
   | "auth_login_succeeded"
   | "reminder_settings_updated"

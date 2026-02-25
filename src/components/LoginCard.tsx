@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 
-export default function LoginCard({ initialEmail = "" }: { initialEmail?: string }) {
+interface LoginCardProps {
+  initialEmail?: string;
+  googleEnabled: boolean;
+}
+
+export default function LoginCard({ initialEmail = "", googleEnabled }: LoginCardProps) {
   const [email, setEmail] = useState(initialEmail);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,9 +39,15 @@ export default function LoginCard({ initialEmail = "" }: { initialEmail?: string
   return (
     <section className="panel p-5 md:p-7">
       <h2 className="text-2xl leading-tight">Sign in to save your TinyKinds</h2>
-      <p className="mt-2 text-sm text-[var(--ink-soft)]">
-        Optional login. We&apos;ll email you a one-time sign-in link.
-      </p>
+      <p className="mt-2 text-sm text-[var(--ink-soft)]">Use Google or get a one-time sign-in link by email.</p>
+
+      {googleEnabled ? (
+        <div className="mt-4">
+          <a className="btn btn-primary inline-block text-sm" href="/api/auth/google/start">
+            Continue with Google
+          </a>
+        </div>
+      ) : null}
 
       <form className="mt-4 grid gap-3" onSubmit={onSubmit}>
         <label className="grid gap-1 text-sm font-medium">
@@ -50,7 +61,7 @@ export default function LoginCard({ initialEmail = "" }: { initialEmail?: string
           />
         </label>
         <div>
-          <button className="btn btn-primary" disabled={loading} type="submit">
+          <button className="btn" disabled={loading} type="submit">
             {loading ? "Sending..." : "Email me a sign-in link"}
           </button>
         </div>

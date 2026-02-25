@@ -33,25 +33,25 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--notify-email",
         default=os.environ.get("TINYKIND_SENDER_NOTIFY_EMAIL", "").strip(),
-        help="Optional sender email to receive recipient reaction notifications",
+        help="Optional sender email to receive recipient reaction/open notifications",
     )
     parser.add_argument("--to-name", required=True, help="Recipient display name")
-    parser.add_argument(
-        "--to-contact",
-        required=True,
-        help="Recipient contact (email preferred for Gmail draft)",
-    )
     parser.add_argument("--body", required=True, help="TinyKind body text")
     parser.add_argument(
-        "--channel",
-        default="email",
-        choices=["email", "sms"],
-        help="Channel recorded by API",
+        "--delivery-mode",
+        default="link",
+        choices=["link", "email"],
+        help="Share mode: link-only or email compose",
+    )
+    parser.add_argument(
+        "--to-email",
+        default="",
+        help="Recipient email (required when --delivery-mode email)",
     )
     parser.add_argument(
         "--open-gmail",
         action="store_true",
-        help="Open returned gmailComposeUrl in default browser",
+        help="Open returned gmailComposeUrl in default browser (email mode only)",
     )
     parser.add_argument(
         "--json",
@@ -68,18 +68,18 @@ def post_send(
     from_name: str,
     notify_email: str,
     to_name: str,
-    to_contact: str,
+    to_email: str,
     body: str,
-    channel: str,
+    delivery_mode: str,
 ) -> dict[str, Any]:
     send_url = urllib.parse.urljoin(api_base_url.rstrip("/") + "/", "api/send")
     payload = {
         "senderName": from_name,
         "senderNotifyEmail": notify_email or None,
         "recipientName": to_name,
-        "recipientContact": to_contact,
+        "recipientEmail": to_email or None,
         "body": body,
-        "channel": channel,
+        "deliveryMode": delivery_mode,
     }
     encoded = json.dumps(payload).encode("utf-8")
     headers = {"Content-Type": "application/json"}
@@ -103,12 +103,16 @@ def print_human(payload: dict[str, Any]) -> None:
     gmail_url = payload.get("gmailComposeUrl", "")
     subject = payload.get("emailSubject", "")
     email_body = payload.get("emailBody", "")
+    share_preview = payload.get("sharePreview", "")
+    delivery_mode = payload.get("deliveryMode", "link")
 
     print("TinyKind created.")
     if message_url:
         print(f"Landing URL: {message_url}")
-    if gmail_url:
+    if delivery_mode == "email" and gmail_url:
         print(f"Gmail draft: {gmail_url}")
+    if delivery_mode == "link" and share_preview:
+        print(f"Share text: {share_preview}")
     if subject:
         print("\nEmail subject:\n")
         print(subject)
@@ -132,15 +136,19 @@ def main() -> int:
         )
         return 2
 
+    if args.delivery_mode == "email" and not args.to_email.strip():
+        print("--to-email is required when --delivery-mode email", file=sys.stderr)
+        return 2
+
     payload = post_send(
         api_base_url=args.api_base_url,
         api_key=args.api_key,
         from_name=args.from_name,
         notify_email=args.notify_email,
         to_name=args.to_name,
-        to_contact=args.to_contact,
+        to_email=args.to_email.strip(),
         body=args.body,
-        channel=args.channel,
+        delivery_mode=args.delivery_mode,
     )
 
     if args.json:

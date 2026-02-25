@@ -27,6 +27,15 @@ interface ReactionApiResponse {
   };
 }
 
+interface OpenApiResponse {
+  recorded: boolean;
+  notification?: {
+    attempted: boolean;
+    sent: boolean;
+    reason?: string;
+  };
+}
+
 export default function RecipientLanding({
   slug,
   senderName,
@@ -50,6 +59,32 @@ export default function RecipientLanding({
       setOpened(true);
     }
   }, [autoOpen]);
+
+  useEffect(() => {
+    let aborted = false;
+    const run = async (): Promise<void> => {
+      try {
+        const response = await fetch("/api/opens", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug }),
+        });
+        if (!response.ok || aborted) {
+          return;
+        }
+        const payload = (await response.json()) as OpenApiResponse;
+        if (payload.notification?.attempted && !payload.notification.sent) {
+          console.warn("[tinykind] open notification unavailable", payload.notification.reason);
+        }
+      } catch {
+        // Keep recipient flow uninterrupted.
+      }
+    };
+    void run();
+    return () => {
+      aborted = true;
+    };
+  }, [slug]);
 
   useEffect(() => {
     if (typeof window === "undefined") {

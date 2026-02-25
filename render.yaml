@@ -16,10 +16,18 @@ services:
         sync: false
       - key: TINYKIND_AUTH_SECRET
         sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
       - key: TINYKIND_ADMIN_TOKEN
         sync: false
       - key: TINYKIND_CRON_TOKEN
         sync: false
+      - key: OPEN_NOTIFY_ENABLED
+        value: "0"
       - key: RESEND_API_KEY
         sync: false
       - key: TINYKIND_REACTION_FROM_EMAIL

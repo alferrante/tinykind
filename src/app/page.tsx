@@ -2,11 +2,14 @@ import Image from "next/image";
 import Link from "next/link";
 import CreateTinyKindCard from "@/components/CreateTinyKindCard";
 import { getAuthenticatedSenderEmail } from "@/lib/senderAuth";
+import { countSentBySenderEmail } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const senderEmail = await getAuthenticatedSenderEmail();
+  const sentCount = senderEmail ? await countSentBySenderEmail(senderEmail) : null;
+  const senderDefaultName = senderEmail ? senderEmail.split("@")[0] ?? "" : "";
 
   return (
     <main className="shell min-h-screen py-8 md:py-12">
@@ -21,31 +24,35 @@ export default async function HomePage() {
             width={220}
           />
           {senderEmail ? (
-            <Link className="btn" href="/dashboard">
-              Dashboard
-            </Link>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-[#ffffff45] bg-[#0f1d3199] px-3 py-1 text-xs text-[#dce7ff]">
+                You&apos;re signed in as {senderEmail}
+              </span>
+              <Link className="btn" href="/dashboard">
+                Dashboard
+              </Link>
+            </div>
           ) : (
             <Link className="btn" href="/login">
-              Optional sign in
+              Sign in
             </Link>
           )}
         </div>
-        <div className="mb-4">
-          {senderEmail ? (
-            <p className="text-sm text-[#dce7ff]">Signed in as {senderEmail}</p>
-          ) : (
-            <p className="text-sm text-[#dce7ff]">
-              No account needed to send. Sign in to save history and weekly reminders.
-            </p>
-          )}
-        </div>
-        <h1 className="mt-2 text-4xl leading-[1.05] text-[#fff5df] md:text-5xl">
+        <h1 className="text-4xl leading-[1.05] text-[#fff5df] md:text-5xl">
           Make someone feel seen, one tiny kind note at a time.
         </h1>
+        <p className="mt-3 text-lg text-[#dce7ff]">Make someone feel seen</p>
+        {senderEmail && sentCount !== null ? (
+          <div className="mt-3">
+            <Link className="rounded-full border border-[#ffffff45] bg-[#0f1d3199] px-3 py-1 text-sm text-[#dce7ff]" href="/dashboard">
+              {sentCount} TinyKinds sent
+            </Link>
+          </div>
+        ) : null}
       </header>
 
       <div className="max-w-[860px]">
-        <CreateTinyKindCard />
+        <CreateTinyKindCard senderDefaultName={senderDefaultName} senderEmail={senderEmail} />
       </div>
     </main>
   );

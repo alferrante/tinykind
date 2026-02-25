@@ -2,15 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { enforceRateLimit } from "@/lib/rateLimit";
 import { getAuthenticatedSenderEmailFromRequest } from "@/lib/senderAuth";
 import { createMessage } from "@/lib/store";
-import type { Channel, UnwrapStyle } from "@/lib/types";
+import type { Channel, DeliveryMode, UnwrapStyle } from "@/lib/types";
 
 interface SendRequest {
   senderName?: string;
   senderNotifyEmail?: string;
   recipientName?: string;
+  recipientEmail?: string;
   recipientContact?: string;
   body?: string;
   website?: string;
+  deliveryMode?: DeliveryMode;
   channel?: Channel;
   unwrapStyle?: UnwrapStyle;
 }
@@ -19,7 +21,7 @@ function looksLikeEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
-function buildShareEmail(senderName: string, recipientName: string, messageUrl: string): {
+function buildShareEmail(senderName: string, messageUrl: string): {
   subject: string;
   body: string;
   preview: string;
@@ -62,9 +64,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if ((payload.website ?? "").trim()) {
       return NextResponse.json({ error: "Unable to process request." }, { status: 400 });
     }
+    const deliveryMode: DeliveryMode = payload.deliveryMode === "email" ? "email" : "link";
     const authenticatedEmail = getAuthenticatedSenderEmailFromRequest(request);
     const senderNotifyEmail = payload.senderNotifyEmail?.trim() || authenticatedEmail || null;
-    const recipientEmailInput = payload.recipientContact?.trim() ?? "";
+    const recipientEmailInput = payload.recipientEmail?.trim() || payload.recipientContact?.trim() || "";
+    if (deliveryMode === "email" && !recipientEmailInput) {
+      throw new Error("Recipient email is required when delivery mode is Send in email.");
+    }
     if (recipientEmailInput && !looksLikeEmail(recipientEmailInput)) {
       throw new Error("Recipient email must be a valid email address.");
     }
@@ -75,7 +81,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       recipientName: payload.recipientName ?? "",
       recipientContact: recipientEmailInput || null,
       body: payload.body ?? "",
-      channel: payload.channel,
+      deliveryMode,
+      channel: payload.channel ?? (deliveryMode === "email" ? "email" : "sms"),
       unwrapStyle: payload.unwrapStyle,
     });
 
@@ -85,13 +92,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       message.recipientContact && looksLikeEmail(message.recipientContact)
         ? message.recipientContact
         : null;
-    const emailDraft = buildShareEmail(message.senderName, message.recipientName, messageUrl);
-    const gmailComposeUrl = buildGmailComposeUrl(recipientEmail, emailDraft.subject, emailDraft.body);
+    const emailDraft = buildShareEmail(message.senderName, messageUrl);
+    const gmailComposeUrl =
+      deliveryMode === "email" ? buildGmailComposeUrl(recipientEmail, emailDraft.subject, emailDraft.body) : null;
 
     return NextResponse.json(
       {
         message,
         messageUrl,
+        deliveryMode,
         recipientEmail,
         gmailComposeUrl,
         emailSubject: emailDraft.subject,

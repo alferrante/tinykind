@@ -41,6 +41,9 @@ export default async function AdminPage({
   const diagnostics = await getStorageDiagnostics();
   const failedNotifications = events.filter((event) => event.type === "reaction_notify_failed");
   const sentNotifications = events.filter((event) => event.type === "reaction_notify_sent");
+  const openNotifyFailures = events.filter((event) => event.type === "open_notify_failed");
+  const openNotifySent = events.filter((event) => event.type === "open_notify_sent");
+  const openedEvents = events.filter((event) => event.type === "message_opened");
 
   return (
     <main className="shell min-h-screen py-8 md:py-12">
@@ -81,6 +84,8 @@ export default async function AdminPage({
           <div>Backups: {diagnostics.backupCount}</div>
           <div>Messages in file: {diagnostics.messageCount}</div>
           <div>Notify failures logged: {failedNotifications.length}</div>
+          <div>Open events logged: {openedEvents.length}</div>
+          <div>Open notify failures: {openNotifyFailures.length}</div>
         </div>
       </section>
 
@@ -109,6 +114,39 @@ export default async function AdminPage({
               <li key={event.id}>
                 {formatTimestamp(event.createdAt)} · {event.senderEmail ?? "unknown"} · {event.metadata.emoji ?? "?"} ·
                 {" "}duration {event.metadata.durationMs ?? "?"}ms · attempts {event.metadata.attempts ?? "?"}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {openNotifyFailures.length > 0 ? (
+        <section className="panel mb-4 p-4 md:p-5">
+          <div className="text-sm text-[#263346]">
+            <strong>Recent open notification failures</strong>
+          </div>
+          <ul className="mt-2 grid gap-2 text-xs text-[#4b5d77]">
+            {openNotifyFailures.slice(0, 10).map((event) => (
+              <li key={event.id}>
+                {formatTimestamp(event.createdAt)} · {event.senderEmail ?? "unknown"} ·
+                {" "}duration {event.metadata.durationMs ?? "?"}ms · attempts {event.metadata.attempts ?? "?"} ·
+                {" "}reason {event.metadata.reason ?? "unknown"}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {openNotifySent.length > 0 ? (
+        <section className="panel mb-4 p-4 md:p-5">
+          <div className="text-sm text-[#263346]">
+            <strong>Recent open notification sends</strong>
+          </div>
+          <ul className="mt-2 grid gap-2 text-xs text-[#4b5d77]">
+            {openNotifySent.slice(0, 10).map((event) => (
+              <li key={event.id}>
+                {formatTimestamp(event.createdAt)} · {event.senderEmail ?? "unknown"} · duration{" "}
+                {event.metadata.durationMs ?? "?"}ms · attempts {event.metadata.attempts ?? "?"}
               </li>
             ))}
           </ul>
