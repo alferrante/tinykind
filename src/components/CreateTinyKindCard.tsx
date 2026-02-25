@@ -176,16 +176,23 @@ export default function CreateTinyKindCard({ senderDefaultName = "", senderEmail
         ) : null}
 
         {!senderEmail ? (
-          <label className="grid gap-1 text-sm font-medium">
-            Your email (optional - for reaction notifications)
-            <input
-              className="field mono"
-              onChange={(event) => setSenderNotifyEmail(event.target.value)}
-              placeholder="you@email.com"
-              type="email"
-              value={senderNotifyEmail}
-            />
-          </label>
+          <div className="grid gap-1">
+            <label className="grid gap-1 text-sm font-medium">
+              Your email (optional - for reaction notifications)
+              <input
+                className="field mono"
+                onChange={(event) => setSenderNotifyEmail(event.target.value)}
+                placeholder="you@email.com"
+                type="email"
+                value={senderNotifyEmail}
+              />
+            </label>
+            {!senderNotifyEmail ? (
+              <p className="text-xs text-[var(--ink-soft)]">
+                If left blank, recipient reactions will still save but no notification email can be sent back.
+              </p>
+            ) : null}
+          </div>
         ) : null}
 
         <label className="grid gap-1 text-sm font-medium">

@@ -43,12 +43,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const stableSeed = existingCookie ?? randomUUID();
     const recipientFingerprint = makeRecipientFingerprint(stableSeed);
     const { reaction, message, changed } = await upsertReaction({ slug, emoji, recipientFingerprint });
+    const hasSenderEmail = Boolean(message.senderNotifyEmail);
     let notification: ReactionNotificationStatus = {
       attempted: false,
       sent: false,
+      reason: hasSenderEmail ? "not-required" : "sender-notification-email-missing",
     };
 
-    const shouldAttemptNotification = Boolean(message.senderNotifyEmail) && (changed || !reaction.notifiedAt);
+    const shouldAttemptNotification = hasSenderEmail && (changed || !reaction.notifiedAt);
     if (shouldAttemptNotification && message.senderNotifyEmail) {
       const retryUnchanged = !changed && !reaction.notifiedAt;
       notification.attempted = true;
@@ -125,6 +127,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         });
         console.error("Failed to send TinyKind reaction email", notifyError);
       }
+    } else if (hasSenderEmail) {
+      notification.reason = "already-notified";
     }
 
     const response = NextResponse.json({ reaction, notification }, { status: 201 });

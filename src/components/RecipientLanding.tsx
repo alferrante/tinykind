@@ -178,6 +178,12 @@ export default function RecipientLanding({
       setSelectedReaction(reactionPayload.reaction.emoji);
       if (reactionPayload.notification?.attempted && !reactionPayload.notification.sent) {
         setReactionNotice("Reaction saved. Sender notification is currently unavailable.");
+      } else if (!reactionPayload.notification?.attempted) {
+        if (reactionPayload.notification?.reason === "sender-notification-email-missing") {
+          setReactionNotice("Reaction saved. Sender did not enable reaction notifications.");
+        } else {
+          setReactionNotice("Reaction saved.");
+        }
       } else {
         setReactionNotice(`Sent to ${senderName}`);
       }
