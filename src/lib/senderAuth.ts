@@ -145,7 +145,8 @@ export function getGoogleClientSecret(): string {
 }
 
 export function getGoogleRedirectUri(baseUrl: string): string {
-  const configured = process.env.GOOGLE_REDIRECT_URI?.trim();
+  // Support the new key name first, keep legacy fallback for backward compatibility.
+  const configured = process.env.GOOGLE_REDIRECT_URL?.trim() || process.env.GOOGLE_REDIRECT_URI?.trim();
   if (configured) {
     return configured;
   }
