@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { buildAppUrl, getAppBaseUrl } from "@/lib/baseUrl";
 import { addOperationalEvent, ensureSenderProfile } from "@/lib/store";
 import {
   createSessionToken,
@@ -65,21 +66,21 @@ async function fetchGoogleEmail(accessToken: string): Promise<string> {
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  const baseUrl = getAppBaseUrl(request.nextUrl.origin);
   if (!isGoogleAuthConfigured()) {
-    return NextResponse.redirect(new URL("/login?error=google_unavailable", request.url));
+    return NextResponse.redirect(buildAppUrl("/login?error=google_unavailable", baseUrl));
   }
 
   const code = request.nextUrl.searchParams.get("code");
   const state = request.nextUrl.searchParams.get("state");
   const storedState = request.cookies.get(GOOGLE_STATE_COOKIE)?.value;
   if (!code || !state || !storedState || state !== storedState) {
-    return NextResponse.redirect(new URL("/login?error=google_state_invalid", request.url));
+    return NextResponse.redirect(buildAppUrl("/login?error=google_state_invalid", baseUrl));
   }
 
   try {
     const clientId = getGoogleClientId();
     const clientSecret = getGoogleClientSecret();
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? request.nextUrl.origin;
     const redirectUri = getGoogleRedirectUri(baseUrl);
 
     const accessToken = await exchangeCodeForAccessToken({
@@ -97,7 +98,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
 
     const sessionToken = createSessionToken(email);
-    const response = NextResponse.redirect(new URL("/dashboard", request.url));
+    const response = NextResponse.redirect(buildAppUrl("/dashboard", baseUrl));
     response.cookies.set({
       name: SENDER_SESSION_COOKIE,
       value: sessionToken,
@@ -120,6 +121,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown";
     console.error("[tinykind] google auth failed", message);
-    return NextResponse.redirect(new URL("/login?error=google_failed", request.url));
+    return NextResponse.redirect(buildAppUrl("/login?error=google_failed", baseUrl));
   }
 }

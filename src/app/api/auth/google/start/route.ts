@@ -1,16 +1,17 @@
 import { randomBytes } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { buildAppUrl, getAppBaseUrl } from "@/lib/baseUrl";
 import { getGoogleClientId, getGoogleRedirectUri, isGoogleAuthConfigured } from "@/lib/senderAuth";
 
 const GOOGLE_STATE_COOKIE = "tinykind_google_state";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  const baseUrl = getAppBaseUrl(request.nextUrl.origin);
   if (!isGoogleAuthConfigured()) {
-    return NextResponse.redirect(new URL("/login?error=google_unavailable", request.url));
+    return NextResponse.redirect(buildAppUrl("/login?error=google_unavailable", baseUrl));
   }
 
   const clientId = getGoogleClientId();
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? request.nextUrl.origin;
   const redirectUri = getGoogleRedirectUri(baseUrl);
   const state = randomBytes(18).toString("base64url");
 
