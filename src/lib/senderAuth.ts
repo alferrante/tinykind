@@ -18,14 +18,10 @@ function safeEqual(a: string, b: string): boolean {
 
 function getAuthSecret(): string {
   const secret = process.env.TINYKIND_AUTH_SECRET?.trim();
-  if (secret) {
-    return secret;
+  if (!secret) {
+    throw new Error("TINYKIND_AUTH_SECRET is required.");
   }
-  const fallback = process.env.ADMIN_PASSWORD?.trim();
-  if (fallback) {
-    return fallback;
-  }
-  throw new Error("TINYKIND_AUTH_SECRET is required.");
+  return secret;
 }
 
 function sign(payload: string): string {

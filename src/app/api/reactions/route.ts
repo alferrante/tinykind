@@ -17,7 +17,7 @@ interface ReactionNotificationStatus {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const limiter = enforceRateLimit(request, {
+    const limiter = await enforceRateLimit(request, {
       scope: "reactions",
       maxHits: 60,
       windowMs: 60_000,

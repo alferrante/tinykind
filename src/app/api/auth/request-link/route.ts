@@ -10,7 +10,7 @@ interface RequestLinkPayload {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const limiter = enforceRateLimit(request, {
+    const limiter = await enforceRateLimit(request, {
       scope: "auth-request-link",
       maxHits: 10,
       windowMs: 60_000,
@@ -55,4 +55,3 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: details }, { status: 400 });
   }
 }
-
