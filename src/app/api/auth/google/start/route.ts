@@ -1,14 +1,23 @@
 import { randomBytes } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { buildAppUrl, getAppBaseUrl } from "@/lib/baseUrl";
-import { getGoogleClientId, getGoogleRedirectUri, isGoogleAuthConfigured } from "@/lib/senderAuth";
+import {
+  getGoogleClientId,
+  getGoogleRedirectUri,
+  isGoogleAuthConfigured,
+  sanitizePostAuthPath,
+} from "@/lib/senderAuth";
 
 const GOOGLE_STATE_COOKIE = "tinykind_google_state";
+const POST_AUTH_REDIRECT_COOKIE = "tinykind_post_auth_redirect";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const baseUrl = getAppBaseUrl(request.nextUrl.origin);
+  const nextPath = sanitizePostAuthPath(request.nextUrl.searchParams.get("next"), "/dashboard");
   if (!isGoogleAuthConfigured()) {
-    return NextResponse.redirect(buildAppUrl("/login?error=google_unavailable", baseUrl));
+    return NextResponse.redirect(
+      buildAppUrl(`/login?error=google_unavailable&next=${encodeURIComponent(nextPath)}`, baseUrl),
+    );
   }
 
   const clientId = getGoogleClientId();
@@ -34,6 +43,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     sameSite: "lax",
     path: "/",
     maxAge: 10 * 60,
+  });
+  response.cookies.set({
+    name: POST_AUTH_REDIRECT_COOKIE,
+    value: nextPath,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 20 * 60,
   });
   return response;
 }

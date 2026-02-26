@@ -5,9 +5,10 @@ import { useState } from "react";
 interface LoginCardProps {
   initialEmail?: string;
   googleEnabled: boolean;
+  nextPath: string;
 }
 
-export default function LoginCard({ initialEmail = "", googleEnabled }: LoginCardProps) {
+export default function LoginCard({ initialEmail = "", googleEnabled, nextPath }: LoginCardProps) {
   const [email, setEmail] = useState(initialEmail);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +23,7 @@ export default function LoginCard({ initialEmail = "", googleEnabled }: LoginCar
       const response = await fetch("/api/auth/request-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, next: nextPath }),
       });
       const payload = (await response.json()) as { ok?: boolean; error?: string };
       if (!response.ok) {
@@ -43,7 +44,10 @@ export default function LoginCard({ initialEmail = "", googleEnabled }: LoginCar
 
       {googleEnabled ? (
         <div className="mt-4">
-          <a className="btn btn-primary inline-block text-sm" href="/api/auth/google/start">
+          <a
+            className="btn btn-primary inline-block text-sm"
+            href={`/api/auth/google/start?next=${encodeURIComponent(nextPath)}`}
+          >
             Continue with Google
           </a>
         </div>

@@ -86,6 +86,7 @@ export interface ReminderSettings {
 export interface SenderProfile {
   id: string;
   email: string;
+  displayName: string | null;
   createdAt: string;
   updatedAt: string;
   reminder: ReminderSettings;

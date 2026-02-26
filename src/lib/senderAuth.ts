@@ -40,6 +40,23 @@ function validEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+export function sanitizePostAuthPath(value: string | null | undefined, fallback = "/dashboard"): string {
+  const raw = (value ?? "").trim();
+  if (!raw) {
+    return fallback;
+  }
+  if (!raw.startsWith("/") || raw.startsWith("//")) {
+    return fallback;
+  }
+  if (raw.startsWith("/api/")) {
+    return fallback;
+  }
+  if (raw.length > 300) {
+    return fallback;
+  }
+  return raw;
+}
+
 export function createMagicLinkToken(email: string): string {
   const normalized = normalizeEmail(email);
   if (!validEmail(normalized)) {

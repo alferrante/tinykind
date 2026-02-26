@@ -1,15 +1,18 @@
 import Image from "next/image";
 import Link from "next/link";
 import CreateTinyKindCard from "@/components/CreateTinyKindCard";
-import { getAuthenticatedSenderEmail } from "@/lib/senderAuth";
-import { countSentBySenderEmail } from "@/lib/store";
+import { getAuthenticatedSenderEmail, isGoogleAuthConfigured } from "@/lib/senderAuth";
+import { countSentBySenderEmail, getSenderProfile } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const senderEmail = await getAuthenticatedSenderEmail();
-  const sentCount = senderEmail ? await countSentBySenderEmail(senderEmail) : null;
-  const senderDefaultName = senderEmail ? senderEmail.split("@")[0] ?? "" : "";
+  const googleEnabled = isGoogleAuthConfigured();
+  const [sentCount, senderProfile] = senderEmail
+    ? await Promise.all([countSentBySenderEmail(senderEmail), getSenderProfile(senderEmail)])
+    : [null, null];
+  const senderDefaultName = senderProfile?.displayName?.trim() || (senderEmail ? senderEmail.split("@")[0] ?? "" : "");
 
   return (
     <main className="shell min-h-screen py-8 md:py-12">
@@ -33,15 +36,14 @@ export default async function HomePage() {
               </Link>
             </div>
           ) : (
-            <Link className="btn" href="/login">
+            <Link className="btn" href="/login?next=%2F">
               Sign in
             </Link>
           )}
         </div>
         <h1 className="text-4xl leading-[1.05] text-[#fff5df] md:text-5xl">
-          Make someone feel seen, one tiny kind note at a time.
+          Make someone feel seen.
         </h1>
-        <p className="mt-3 text-lg text-[#dce7ff]">Make someone feel seen</p>
         {senderEmail && sentCount !== null ? (
           <div className="mt-3">
             <Link className="rounded-full border border-[#ffffff45] bg-[#0f1d3199] px-3 py-1 text-sm text-[#dce7ff]" href="/dashboard">
@@ -52,7 +54,7 @@ export default async function HomePage() {
       </header>
 
       <div className="max-w-[860px]">
-        <CreateTinyKindCard senderDefaultName={senderDefaultName} senderEmail={senderEmail} />
+        <CreateTinyKindCard googleEnabled={googleEnabled} senderDefaultName={senderDefaultName} senderEmail={senderEmail} />
       </div>
     </main>
   );

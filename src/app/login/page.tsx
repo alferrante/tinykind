@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { getAuthenticatedSenderEmail, isGoogleAuthConfigured } from "@/lib/senderAuth";
+import { getAuthenticatedSenderEmail, isGoogleAuthConfigured, sanitizePostAuthPath } from "@/lib/senderAuth";
 import LoginCard from "@/components/LoginCard";
 
 export const dynamic = "force-dynamic";
@@ -12,14 +12,15 @@ export const metadata: Metadata = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ error?: string; email?: string }>;
+  searchParams?: Promise<{ error?: string; email?: string; next?: string }>;
 }) {
+  const params = searchParams ? await searchParams : undefined;
+  const nextPath = sanitizePostAuthPath(params?.next, "/dashboard");
   const senderEmail = await getAuthenticatedSenderEmail();
   if (senderEmail) {
-    redirect("/dashboard");
+    redirect(nextPath);
   }
 
-  const params = searchParams ? await searchParams : undefined;
   const error = params?.error;
   const email = params?.email ?? "";
   const googleEnabled = isGoogleAuthConfigured();
@@ -31,7 +32,7 @@ export default async function LoginPage({
       </header>
 
       <div className="max-w-[560px]">
-        <LoginCard googleEnabled={googleEnabled} initialEmail={email} />
+        <LoginCard googleEnabled={googleEnabled} initialEmail={email} nextPath={nextPath} />
         {error ? (
           <div className="mt-3 rounded-lg border border-[#a22d2d55] bg-[#fff5f5] px-4 py-3 text-sm text-[#a22d2d]">
             {error === "google_unavailable"

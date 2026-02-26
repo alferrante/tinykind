@@ -69,6 +69,7 @@ async function readDb(): Promise<TinyKindDb> {
   })) as TinyKindMessage[];
   const senderProfiles = (parsed.senderProfiles ?? []).map((profile) => ({
     ...profile,
+    displayName: profile.displayName ?? null,
     reminder: {
       enabled: profile.reminder?.enabled ?? false,
       weekday: Number(profile.reminder?.weekday ?? 0),
@@ -283,16 +284,24 @@ async function logEvent(
   });
 }
 
-function getOrCreateSenderProfile(db: TinyKindDb, email: string): SenderProfile {
+function getOrCreateSenderProfile(db: TinyKindDb, email: string, displayName?: string | null): SenderProfile {
   const normalized = trimAndLower(email);
   const existing = db.senderProfiles.find((profile) => profile.email === normalized);
   if (existing) {
+    if (displayName) {
+      const cleanedDisplayName = trimAndSingleSpace(displayName);
+      if (cleanedDisplayName && existing.displayName !== cleanedDisplayName) {
+        existing.displayName = cleanedDisplayName;
+      }
+    }
     return existing;
   }
   const now = new Date().toISOString();
+  const cleanedDisplayName = displayName ? trimAndSingleSpace(displayName) : null;
   const created: SenderProfile = {
     id: randomUUID(),
     email: normalized,
+    displayName: cleanedDisplayName || null,
     createdAt: now,
     updatedAt: now,
     reminder: defaultReminderSettings(),
@@ -367,7 +376,10 @@ export async function createMessage(input: CreateMessageInput): Promise<TinyKind
 
   db.messages.push(message);
   if (senderNotifyEmail) {
-    const profile = getOrCreateSenderProfile(db, senderNotifyEmail);
+    const profile = getOrCreateSenderProfile(db, senderNotifyEmail, senderName);
+    if (senderName && profile.displayName !== senderName) {
+      profile.displayName = senderName;
+    }
     profile.updatedAt = now;
   }
   await logEvent(db, "message_created", {
@@ -585,10 +597,10 @@ export async function countSentBySenderEmail(senderEmail: string): Promise<numbe
   ).length;
 }
 
-export async function ensureSenderProfile(email: string): Promise<SenderProfile> {
+export async function ensureSenderProfile(email: string, displayName?: string | null): Promise<SenderProfile> {
   const normalized = trimAndLower(email);
   const db = await readDb();
-  const profile = getOrCreateSenderProfile(db, normalized);
+  const profile = getOrCreateSenderProfile(db, normalized, displayName);
   profile.updatedAt = new Date().toISOString();
   await writeDb(db);
   return profile;

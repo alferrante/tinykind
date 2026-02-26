@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { DeliveryMode } from "@/lib/types";
 
 interface CreatedMessage {
@@ -19,34 +19,142 @@ interface CreateResponse {
   sharePreview: string;
 }
 
+type ComposerStep = "compose" | "details";
+
 interface CreateTinyKindCardProps {
   senderDefaultName?: string;
   senderEmail: string | null;
+  googleEnabled: boolean;
 }
 
-export default function CreateTinyKindCard({ senderDefaultName = "", senderEmail }: CreateTinyKindCardProps) {
+interface DraftSnapshot {
+  step: ComposerStep;
+  senderName: string;
+  senderNotifyEmail: string;
+  recipientName: string;
+  recipientEmail: string;
+  body: string;
+}
+
+const DRAFT_STORAGE_KEY = "tinykind-compose-draft-v3";
+
+function loadDraft(): DraftSnapshot | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  try {
+    const raw = window.localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as Partial<DraftSnapshot>;
+    return {
+      step: parsed.step === "details" ? "details" : "compose",
+      senderName: typeof parsed.senderName === "string" ? parsed.senderName : "",
+      senderNotifyEmail: typeof parsed.senderNotifyEmail === "string" ? parsed.senderNotifyEmail : "",
+      recipientName: typeof parsed.recipientName === "string" ? parsed.recipientName : "",
+      recipientEmail: typeof parsed.recipientEmail === "string" ? parsed.recipientEmail : "",
+      body: typeof parsed.body === "string" ? parsed.body : "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveDraft(snapshot: DraftSnapshot): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(snapshot));
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function clearDraft(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.localStorage.removeItem(DRAFT_STORAGE_KEY);
+  } catch {
+    // ignore storage failures
+  }
+}
+
+export default function CreateTinyKindCard({
+  senderDefaultName = "",
+  senderEmail,
+  googleEnabled,
+}: CreateTinyKindCardProps) {
+  const [step, setStep] = useState<ComposerStep>("compose");
   const [senderName, setSenderName] = useState(senderDefaultName);
   const [senderNotifyEmail, setSenderNotifyEmail] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
   const [body, setBody] = useState("");
   const [website, setWebsite] = useState("");
-  const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>("link");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<CreateResponse | null>(null);
   const [copied, setCopied] = useState<string>("");
   const [gmailOpened, setGmailOpened] = useState(false);
   const [sendMarked, setSendMarked] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(false);
 
   useEffect(() => {
-    if (senderDefaultName) {
+    if (draftLoaded) {
+      return;
+    }
+    const draft = loadDraft();
+    if (!draft) {
+      setDraftLoaded(true);
+      return;
+    }
+    setStep(draft.step);
+    setSenderName(draft.senderName || senderDefaultName);
+    setSenderNotifyEmail(draft.senderNotifyEmail);
+    setRecipientName(draft.recipientName);
+    setRecipientEmail(draft.recipientEmail);
+    setBody(draft.body);
+    setDraftLoaded(true);
+  }, [draftLoaded, senderDefaultName]);
+
+  useEffect(() => {
+    if (senderDefaultName && senderEmail && !senderName.trim()) {
       setSenderName(senderDefaultName);
     }
-  }, [senderDefaultName]);
+  }, [senderDefaultName, senderEmail, senderName]);
+
+  useEffect(() => {
+    if (!draftLoaded) {
+      return;
+    }
+    saveDraft({
+      step,
+      senderName,
+      senderNotifyEmail,
+      recipientName,
+      recipientEmail,
+      body,
+    });
+  }, [draftLoaded, step, senderName, senderNotifyEmail, recipientName, recipientEmail, body]);
 
   const charCount = body.length;
   const bodyTooLong = charCount > 500;
+  const deliveryMode: DeliveryMode = recipientEmail.trim() ? "email" : "link";
+
+  const loginQuery = useMemo(() => {
+    const params = new URLSearchParams({ next: "/" });
+    if (senderNotifyEmail.trim()) {
+      params.set("email", senderNotifyEmail.trim());
+    }
+    return params.toString();
+  }, [senderNotifyEmail]);
+
+  const googleStartHref = "/api/auth/google/start?next=%2F";
+  const emailLoginHref = `/login?${loginQuery}`;
 
   async function copyToClipboard(label: string, value: string): Promise<void> {
     try {
@@ -59,14 +167,42 @@ export default function CreateTinyKindCard({ senderDefaultName = "", senderEmail
     }
   }
 
+  function goToDetails(): void {
+    if (!body.trim()) {
+      setError("Write your TinyKind message first.");
+      return;
+    }
+    if (bodyTooLong) {
+      setError("Message exceeds 500 characters.");
+      return;
+    }
+    setError(null);
+    setStep("details");
+  }
+
   async function onSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (bodyTooLong) {
       setError("Message exceeds 500 characters.");
       return;
     }
-    if (deliveryMode === "email" && !recipientEmail.trim()) {
-      setError("Recipient email is required for Send in email.");
+    if (!body.trim()) {
+      setError("Message is required.");
+      return;
+    }
+    if (!recipientName.trim()) {
+      setError("Add who this TinyKind is for.");
+      return;
+    }
+
+    const effectiveSenderName = senderEmail ? senderDefaultName.trim() || senderName.trim() : senderName.trim();
+    if (!effectiveSenderName) {
+      setError("Add your name, or sign in to autofill it.");
+      return;
+    }
+
+    if (!senderEmail && !senderNotifyEmail.trim()) {
+      setError("Add your email for reaction updates, or sign in.");
       return;
     }
 
@@ -81,10 +217,10 @@ export default function CreateTinyKindCard({ senderDefaultName = "", senderEmail
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          senderName,
+          senderName: effectiveSenderName,
           senderNotifyEmail: senderEmail ?? senderNotifyEmail,
           recipientName,
-          recipientEmail: deliveryMode === "email" ? recipientEmail : null,
+          recipientEmail: recipientEmail.trim() || null,
           body,
           website,
           deliveryMode,
@@ -95,6 +231,7 @@ export default function CreateTinyKindCard({ senderDefaultName = "", senderEmail
       if (!response.ok) {
         throw new Error("error" in payload ? payload.error : "Failed to create message.");
       }
+      clearDraft();
       setCreated(payload as CreateResponse);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Failed to create message.");
@@ -114,7 +251,7 @@ export default function CreateTinyKindCard({ senderDefaultName = "", senderEmail
 
   return (
     <section className="panel p-5 md:p-7">
-      <form className="grid gap-3" onSubmit={onSubmit}>
+      <form className="grid gap-4" onSubmit={onSubmit}>
         <label aria-hidden="true" className="hidden">
           Website
           <input
@@ -125,101 +262,128 @@ export default function CreateTinyKindCard({ senderDefaultName = "", senderEmail
           />
         </label>
 
-        <div className="inline-flex w-fit rounded-full border border-[var(--line)] bg-[#fff4e6] p-1">
-          <button
-            className={`rounded-full px-3 py-1 text-sm ${deliveryMode === "link" ? "bg-[#1f2a38] text-white" : "text-[#263346]"}`}
-            onClick={() => setDeliveryMode("link")}
-            type="button"
-          >
-            Share a link
-          </button>
-          <button
-            className={`rounded-full px-3 py-1 text-sm ${deliveryMode === "email" ? "bg-[#1f2a38] text-white" : "text-[#263346]"}`}
-            onClick={() => setDeliveryMode("email")}
-            type="button"
-          >
-            Send in email
-          </button>
-        </div>
-
-        <label className="grid gap-1 text-sm font-medium">
-          From
-          <input
-            className="field"
-            onChange={(event) => setSenderName(event.target.value)}
-            placeholder="Your name"
-            value={senderName}
-          />
-        </label>
-
-        <label className="grid gap-1 text-sm font-medium">
-          To
-          <input
-            className="field"
-            onChange={(event) => setRecipientName(event.target.value)}
-            placeholder="Who is this for?"
-            value={recipientName}
-          />
-        </label>
-
-        {deliveryMode === "email" ? (
-          <label className="grid gap-1 text-sm font-medium">
-            Recipient email
-            <input
-              className="field mono"
-              onChange={(event) => setRecipientEmail(event.target.value)}
-              placeholder="recipient@email.com"
-              type="email"
-              value={recipientEmail}
-            />
-          </label>
-        ) : null}
-
-        {!senderEmail ? (
-          <div className="grid gap-1">
+        {step === "compose" ? (
+          <>
             <label className="grid gap-1 text-sm font-medium">
-              Your email (optional - for reaction notifications)
-              <input
-                className="field mono"
-                onChange={(event) => setSenderNotifyEmail(event.target.value)}
-                placeholder="you@email.com"
-                type="email"
-                value={senderNotifyEmail}
+              Message
+              <textarea
+                className="field min-h-32 resize-y"
+                maxLength={500}
+                onChange={(event) => setBody(event.target.value)}
+                placeholder="I appreciate you because..."
+                value={body}
               />
             </label>
-            {!senderNotifyEmail ? (
-              <p className="text-xs text-[var(--ink-soft)]">
-                If left blank, recipient reactions will still save but no notification email can be sent back.
-              </p>
+
+            <div className="text-sm text-[var(--ink-soft)]">
+              {charCount}/500 {bodyTooLong ? "(too long)" : ""}
+            </div>
+
+            <div className="mt-1 flex items-center gap-3">
+              <button className="btn btn-primary" disabled={bodyTooLong || loading} onClick={goToDetails} type="button">
+                Continue
+              </button>
+              {error ? <span className="text-sm text-[#a22d2d]">{error}</span> : null}
+            </div>
+          </>
+        ) : (
+          <>
+            {!senderEmail ? (
+              <div className="rounded-xl border border-[var(--line)] bg-[#fff8ee] p-3 text-sm text-[var(--ink-soft)]">
+                <p className="text-[var(--ink)]">Sign in to autofill your info and save your TinyKind history.</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {googleEnabled ? (
+                    <a className="btn btn-primary inline-block px-4 py-2 text-sm" href={googleStartHref}>
+                      Continue with Google
+                    </a>
+                  ) : null}
+                  <a className="btn inline-block px-4 py-2 text-sm" href={emailLoginHref}>
+                    Email sign-in link
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-[var(--line)] bg-[#fff8ee] px-3 py-2 text-sm text-[var(--ink)]">
+                From <strong>{senderDefaultName || senderName}</strong> ({senderEmail})
+              </div>
+            )}
+
+            {!senderEmail ? (
+              <label className="grid gap-1 text-sm font-medium">
+                From
+                <input
+                  className="field"
+                  onChange={(event) => setSenderName(event.target.value)}
+                  placeholder="Your name"
+                  value={senderName}
+                />
+              </label>
             ) : null}
-          </div>
-        ) : null}
 
-        <label className="grid gap-1 text-sm font-medium">
-          Message
-          <textarea
-            className="field min-h-28 resize-y"
-            maxLength={500}
-            onChange={(event) => setBody(event.target.value)}
-            placeholder="I appreciate you because..."
-            value={body}
-          />
-        </label>
+            <label className="grid gap-1 text-sm font-medium">
+              To
+              <input
+                className="field"
+                onChange={(event) => setRecipientName(event.target.value)}
+                placeholder="Who is this for?"
+                value={recipientName}
+              />
+            </label>
 
-        <div className="text-sm text-[var(--ink-soft)]">
-          {charCount}/500 {bodyTooLong ? "(too long)" : ""}
-        </div>
+            <label className="grid gap-1 text-sm font-medium">
+              Recipient email (optional)
+              <input
+                className="field mono"
+                onChange={(event) => setRecipientEmail(event.target.value)}
+                placeholder="recipient@email.com"
+                type="email"
+                value={recipientEmail}
+              />
+            </label>
 
-        <div className="mt-1 flex items-center gap-3">
-          <button className="btn btn-primary" disabled={loading || bodyTooLong} type="submit">
-            {loading
-              ? "Creating..."
-              : deliveryMode === "email"
-                ? "Create link + Gmail draft"
-                : "Create TinyKind link"}
-          </button>
-          {error ? <span className="text-sm text-[#a22d2d]">{error}</span> : null}
-        </div>
+            {!senderEmail ? (
+              <label className="grid gap-1 text-sm font-medium">
+                Your email (for reactions)
+                <input
+                  className="field mono"
+                  onChange={(event) => setSenderNotifyEmail(event.target.value)}
+                  placeholder="you@email.com"
+                  type="email"
+                  value={senderNotifyEmail}
+                />
+              </label>
+            ) : null}
+
+            <label className="grid gap-1 text-sm font-medium">
+              Message
+              <textarea
+                className="field min-h-32 resize-y"
+                maxLength={500}
+                onChange={(event) => setBody(event.target.value)}
+                placeholder="I appreciate you because..."
+                value={body}
+              />
+            </label>
+
+            <div className="text-sm text-[var(--ink-soft)]">
+              {charCount}/500 {bodyTooLong ? "(too long)" : ""}
+            </div>
+
+            <div className="mt-1 flex flex-wrap items-center gap-3">
+              <button className="btn" onClick={() => setStep("compose")} type="button">
+                Back
+              </button>
+              <button className="btn btn-primary" disabled={loading || bodyTooLong} type="submit">
+                {loading
+                  ? "Creating..."
+                  : deliveryMode === "email"
+                    ? "Create link + Gmail draft"
+                    : "Create TinyKind link"}
+              </button>
+              {error ? <span className="text-sm text-[#a22d2d]">{error}</span> : null}
+            </div>
+          </>
+        )}
       </form>
 
       {created ? (
@@ -257,9 +421,6 @@ export default function CreateTinyKindCard({ senderDefaultName = "", senderEmail
               <div className="mt-3 text-sm text-[var(--ink-soft)]">
                 Recipient email: {created.recipientEmail ?? "Not provided (add recipient in Gmail)"}
               </div>
-              <div className="mt-1 text-xs text-[var(--ink-soft)]">
-                This does not send automatically until you click Send in Gmail.
-              </div>
               {gmailOpened && !sendMarked ? (
                 <div className="mt-1 text-xs text-[var(--ink-soft)]">
                   After sending in Gmail, click &quot;I sent it&quot; here.
@@ -270,16 +431,6 @@ export default function CreateTinyKindCard({ senderDefaultName = "", senderEmail
           ) : (
             <div className="mt-2 text-xs text-[var(--ink-soft)]">{created.sharePreview}</div>
           )}
-
-          {!senderEmail && senderNotifyEmail ? (
-            <div className="mt-2 text-xs text-[var(--ink-soft)]">
-              Want history and reminders?{" "}
-              <a className="underline" href={`/login?email=${encodeURIComponent(senderNotifyEmail)}`}>
-                Sign in with this email
-              </a>
-              .
-            </div>
-          ) : null}
 
           <div className="mt-2 text-sm text-[var(--ink-soft)]">Email preview:</div>
           <div className="relative">

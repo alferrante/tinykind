@@ -7,10 +7,12 @@ import {
   getGoogleClientSecret,
   getGoogleRedirectUri,
   isGoogleAuthConfigured,
+  sanitizePostAuthPath,
   SENDER_SESSION_COOKIE,
 } from "@/lib/senderAuth";
 
 const GOOGLE_STATE_COOKIE = "tinykind_google_state";
+const POST_AUTH_REDIRECT_COOKIE = "tinykind_post_auth_redirect";
 
 interface GoogleTokenResponse {
   access_token?: string;
@@ -19,6 +21,7 @@ interface GoogleTokenResponse {
 interface GoogleUserInfoResponse {
   email?: string;
   email_verified?: boolean;
+  name?: string;
 }
 
 async function exchangeCodeForAccessToken(params: {
@@ -49,7 +52,7 @@ async function exchangeCodeForAccessToken(params: {
   return payload.access_token;
 }
 
-async function fetchGoogleEmail(accessToken: string): Promise<string> {
+async function fetchGoogleUserInfo(accessToken: string): Promise<{ email: string; displayName: string | null }> {
   const response = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
     method: "GET",
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -62,20 +65,24 @@ async function fetchGoogleEmail(accessToken: string): Promise<string> {
   if (!email || !payload.email_verified) {
     throw new Error("Google account email is unavailable or unverified.");
   }
-  return email;
+  return {
+    email,
+    displayName: payload.name?.trim() || null,
+  };
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const baseUrl = getAppBaseUrl(request.nextUrl.origin);
+  const nextPath = sanitizePostAuthPath(request.cookies.get(POST_AUTH_REDIRECT_COOKIE)?.value, "/dashboard");
   if (!isGoogleAuthConfigured()) {
-    return NextResponse.redirect(buildAppUrl("/login?error=google_unavailable", baseUrl));
+    return NextResponse.redirect(buildAppUrl(`/login?error=google_unavailable&next=${encodeURIComponent(nextPath)}`, baseUrl));
   }
 
   const code = request.nextUrl.searchParams.get("code");
   const state = request.nextUrl.searchParams.get("state");
   const storedState = request.cookies.get(GOOGLE_STATE_COOKIE)?.value;
   if (!code || !state || !storedState || state !== storedState) {
-    return NextResponse.redirect(buildAppUrl("/login?error=google_state_invalid", baseUrl));
+    return NextResponse.redirect(buildAppUrl(`/login?error=google_state_invalid&next=${encodeURIComponent(nextPath)}`, baseUrl));
   }
 
   try {
@@ -89,16 +96,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       clientSecret,
       redirectUri,
     });
-    const email = await fetchGoogleEmail(accessToken);
+    const user = await fetchGoogleUserInfo(accessToken);
 
-    await ensureSenderProfile(email);
+    await ensureSenderProfile(user.email, user.displayName);
     await addOperationalEvent("auth_login_succeeded", {
-      senderEmail: email,
+      senderEmail: user.email,
       metadata: { source: "google" },
     });
 
-    const sessionToken = createSessionToken(email);
-    const response = NextResponse.redirect(buildAppUrl("/dashboard", baseUrl));
+    const sessionToken = createSessionToken(user.email);
+    const response = NextResponse.redirect(buildAppUrl(nextPath, baseUrl));
     response.cookies.set({
       name: SENDER_SESSION_COOKIE,
       value: sessionToken,
@@ -117,10 +124,19 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
     });
+    response.cookies.set({
+      name: POST_AUTH_REDIRECT_COOKIE,
+      value: "",
+      path: "/",
+      maxAge: 0,
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
     return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown";
     console.error("[tinykind] google auth failed", message);
-    return NextResponse.redirect(buildAppUrl("/login?error=google_failed", baseUrl));
+    return NextResponse.redirect(buildAppUrl(`/login?error=google_failed&next=${encodeURIComponent(nextPath)}`, baseUrl));
   }
 }

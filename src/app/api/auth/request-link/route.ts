@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendLoginLinkEmail } from "@/lib/authNotification";
 import { ensureSenderProfile, addOperationalEvent } from "@/lib/store";
-import { createMagicLinkToken } from "@/lib/senderAuth";
+import { createMagicLinkToken, sanitizePostAuthPath } from "@/lib/senderAuth";
 import { enforceRateLimit } from "@/lib/rateLimit";
 
 interface RequestLinkPayload {
   email?: string;
+  next?: string;
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -24,6 +25,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const payload = (await request.json()) as RequestLinkPayload;
     const email = payload.email?.trim().toLowerCase() ?? "";
+    const nextPath = sanitizePostAuthPath(payload.next, "/dashboard");
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: "Valid email is required." }, { status: 400 });
     }
@@ -31,7 +33,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     await ensureSenderProfile(email);
     const token = createMagicLinkToken(email);
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? request.nextUrl.origin;
-    const loginUrl = `${baseUrl}/auth/callback?token=${encodeURIComponent(token)}`;
+    const loginUrl = `${baseUrl}/auth/callback?token=${encodeURIComponent(token)}&next=${encodeURIComponent(nextPath)}`;
     const result = await sendLoginLinkEmail({
       toEmail: email,
       loginUrl,
@@ -55,4 +57,3 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: details }, { status: 400 });
   }
 }
-

@@ -22,7 +22,7 @@ function formatTimestamp(iso: string): string {
 export default async function DashboardPage() {
   const senderEmail = await getAuthenticatedSenderEmail();
   if (!senderEmail) {
-    redirect("/login");
+    redirect("/login?next=%2Fdashboard");
   }
 
   const [profile, messages] = await Promise.all([
@@ -94,4 +94,3 @@ export default async function DashboardPage() {
     </main>
   );
 }
-
