@@ -48,7 +48,7 @@ function buildGmailComposeUrl(to: string | null, subject: string, body: string):
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const limiter = enforceRateLimit(request, {
+    const limiter = await enforceRateLimit(request, {
       scope: "send",
       maxHits: 20,
       windowMs: 60_000,

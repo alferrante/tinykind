@@ -20,7 +20,7 @@ function openNotifyEnabled(): boolean {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const limiter = enforceRateLimit(request, {
+    const limiter = await enforceRateLimit(request, {
       scope: "opens",
       maxHits: 120,
       windowMs: 60_000,
