@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
+import AccountMenu from "@/components/AccountMenu";
 import DashboardReminderForm from "@/components/DashboardReminderForm";
 import { getAuthenticatedSenderEmail } from "@/lib/senderAuth";
 import { getSenderProfile, listMessagesBySenderEmail } from "@/lib/store";
@@ -35,18 +36,9 @@ export default async function DashboardPage() {
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl text-[#fff5df] md:text-4xl">Your TinyKinds</h1>
-          <p className="mt-2 text-sm text-[#dce7ff]">{senderEmail}</p>
+          <p className="mt-2 text-sm text-[#dce7ff]">Signed in as {profile?.displayName || senderEmail}</p>
         </div>
-        <div className="flex gap-2">
-          <Link className="btn" href="/">
-            New TinyKind
-          </Link>
-          <form action="/api/auth/logout" method="post">
-            <button className="btn" type="submit">
-              Log out
-            </button>
-          </form>
-        </div>
+        <AccountMenu displayName={profile?.displayName} senderEmail={senderEmail} showDashboardLink={false} showNewTinyKindLink />
       </header>
 
       <div className="grid gap-4">

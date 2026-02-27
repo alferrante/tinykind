@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import AccountMenu from "@/components/AccountMenu";
 import CreateTinyKindCard from "@/components/CreateTinyKindCard";
 import { getAuthenticatedSenderEmail, isGoogleAuthConfigured } from "@/lib/senderAuth";
 import { countSentBySenderEmail, getSenderProfile } from "@/lib/store";
@@ -27,14 +28,7 @@ export default async function HomePage() {
             width={220}
           />
           {senderEmail ? (
-            <div className="flex items-center gap-2">
-              <span className="rounded-full border border-[#ffffff45] bg-[#0f1d3199] px-3 py-1 text-xs text-[#dce7ff]">
-                You&apos;re signed in as {senderEmail}
-              </span>
-              <Link className="btn" href="/dashboard">
-                Dashboard
-              </Link>
-            </div>
+            <AccountMenu displayName={senderProfile?.displayName} senderEmail={senderEmail} showDashboardLink />
           ) : (
             <Link className="btn" href="/login?next=%2F">
               Sign in
