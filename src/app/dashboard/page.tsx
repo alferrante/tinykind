@@ -38,7 +38,13 @@ export default async function DashboardPage() {
           <h1 className="text-3xl text-[#fff5df] md:text-4xl">Your TinyKinds</h1>
           <p className="mt-2 text-sm text-[#dce7ff]">Signed in as {profile?.displayName || senderEmail}</p>
         </div>
-        <AccountMenu displayName={profile?.displayName} senderEmail={senderEmail} showDashboardLink={false} showNewTinyKindLink />
+        <AccountMenu
+          displayName={profile?.displayName}
+          senderEmail={senderEmail}
+          sentCount={messages.length}
+          showDashboardLink={false}
+          showNewTinyKindLink
+        />
       </header>
 
       <div className="grid gap-4">

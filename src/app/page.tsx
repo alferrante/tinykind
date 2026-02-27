@@ -17,7 +17,7 @@ export default async function HomePage() {
 
   return (
     <main className="shell min-h-screen py-8 md:py-12">
-      <header className="mb-5 md:mb-8">
+      <header className="mb-6 md:mb-8">
         <div className="mb-4 flex items-center justify-between gap-4">
           <Image
             alt="tinykind"
@@ -28,7 +28,12 @@ export default async function HomePage() {
             width={220}
           />
           {senderEmail ? (
-            <AccountMenu displayName={senderProfile?.displayName} senderEmail={senderEmail} showDashboardLink />
+            <AccountMenu
+              displayName={senderProfile?.displayName}
+              senderEmail={senderEmail}
+              sentCount={sentCount ?? undefined}
+              showDashboardLink
+            />
           ) : (
             <Link className="btn" href="/login?next=%2F">
               Sign in
@@ -38,13 +43,6 @@ export default async function HomePage() {
         <h1 className="text-4xl leading-[1.05] text-[#fff5df] md:text-5xl">
           Make someone feel seen.
         </h1>
-        {senderEmail && sentCount !== null ? (
-          <div className="mt-3">
-            <Link className="rounded-full border border-[#ffffff45] bg-[#0f1d3199] px-3 py-1 text-sm text-[#dce7ff]" href="/dashboard">
-              {sentCount} TinyKinds sent
-            </Link>
-          </div>
-        ) : null}
       </header>
 
       <div className="max-w-[860px]">

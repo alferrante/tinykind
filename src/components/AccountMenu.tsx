@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 interface AccountMenuProps {
   senderEmail: string;
   displayName?: string | null;
+  sentCount?: number | null;
   showDashboardLink?: boolean;
   showNewTinyKindLink?: boolean;
 }
@@ -30,6 +31,7 @@ function getDisplayName(displayName: string | null | undefined, senderEmail: str
 export default function AccountMenu({
   senderEmail,
   displayName,
+  sentCount = null,
   showDashboardLink = true,
   showNewTinyKindLink = true,
 }: AccountMenuProps) {
@@ -69,27 +71,43 @@ export default function AccountMenu({
       <button
         aria-expanded={open}
         aria-haspopup="menu"
-        className="grid h-11 w-11 place-items-center rounded-full border border-[#ffffff4d] bg-[#d6e4ff] text-xl font-semibold text-[#1f3d73] shadow-md transition hover:brightness-105"
+        className="flex h-11 items-center gap-2 rounded-full border border-[#ffffff4a] bg-[#0c203acc] px-2.5 text-left text-[#e9f0ff] shadow-md backdrop-blur transition hover:brightness-105"
         onClick={() => setOpen((value) => !value)}
         type="button"
       >
-        {initial}
+        <span className="grid h-7 w-7 place-items-center rounded-full bg-[#d6e4ff] text-base font-semibold text-[#1f3d73]">
+          {initial}
+        </span>
+        <span className="hidden max-w-[150px] truncate text-sm font-medium md:block">{resolvedName}</span>
+        <span className="text-xs opacity-70">▾</span>
       </button>
 
       {open ? (
         <div
-          className="absolute right-0 z-30 mt-3 w-[260px] overflow-hidden rounded-2xl border border-[#ffffff2b] bg-[#0f1d31f2] text-[#e7efff] shadow-2xl backdrop-blur-md"
+          className="absolute right-0 z-30 mt-3 w-[300px] overflow-hidden rounded-2xl border border-[#d7deeb] bg-[#f7f9ff] text-[#1c2638] shadow-2xl"
           role="menu"
         >
-          <div className="border-b border-[#ffffff1f] px-4 py-4">
-            <div className="text-base font-semibold">{resolvedName}</div>
-            <div className="mt-1 text-xs text-[#dce7ffcc]">{senderEmail}</div>
+          <div className="border-b border-[#dfe5f1] px-4 py-4">
+            <div className="flex items-center gap-3">
+              <span className="grid h-10 w-10 place-items-center rounded-full bg-[#d6e4ff] text-xl font-semibold text-[#1f3d73]">
+                {initial}
+              </span>
+              <div>
+                <div className="text-base font-semibold">{resolvedName}</div>
+                <div className="mt-0.5 text-xs text-[#4a5a75]">{senderEmail}</div>
+              </div>
+            </div>
+            {typeof sentCount === "number" ? (
+              <div className="mt-3 inline-flex rounded-full border border-[#d5deed] bg-[#edf2fb] px-3 py-1 text-xs text-[#4a5a75]">
+                {sentCount} TinyKinds sent
+              </div>
+            ) : null}
           </div>
 
           <div className="px-2 py-2">
             {showDashboardLink ? (
               <Link
-                className="block rounded-xl px-3 py-2 text-sm hover:bg-[#ffffff14]"
+                className="block rounded-xl px-3 py-2 text-sm hover:bg-[#e9eef9]"
                 href="/dashboard"
                 onClick={() => setOpen(false)}
                 role="menuitem"
@@ -99,7 +117,7 @@ export default function AccountMenu({
             ) : null}
             {showNewTinyKindLink ? (
               <Link
-                className="block rounded-xl px-3 py-2 text-sm hover:bg-[#ffffff14]"
+                className="block rounded-xl px-3 py-2 text-sm hover:bg-[#e9eef9]"
                 href="/"
                 onClick={() => setOpen(false)}
                 role="menuitem"
@@ -109,9 +127,9 @@ export default function AccountMenu({
             ) : null}
           </div>
 
-          <div className="border-t border-[#ffffff1f] px-2 py-2">
+          <div className="border-t border-[#dfe5f1] px-2 py-2">
             <form action="/api/auth/logout" method="post">
-              <button className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-[#ffffff14]" role="menuitem" type="submit">
+              <button className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-[#e9eef9]" role="menuitem" type="submit">
                 Log out
               </button>
             </form>

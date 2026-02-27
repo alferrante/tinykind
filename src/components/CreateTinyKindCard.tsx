@@ -14,7 +14,6 @@ interface CreateResponse {
   deliveryMode: DeliveryMode;
   recipientEmail: string | null;
   gmailComposeUrl: string | null;
-  emailSubject: string;
   emailBody: string;
   sharePreview: string;
 }
@@ -34,9 +33,10 @@ interface DraftSnapshot {
   recipientName: string;
   recipientEmail: string;
   body: string;
+  sendByEmail: boolean;
 }
 
-const DRAFT_STORAGE_KEY = "tinykind-compose-draft-v3";
+const DRAFT_STORAGE_KEY = "tinykind-compose-draft-v4";
 
 function loadDraft(): DraftSnapshot | null {
   if (typeof window === "undefined") {
@@ -55,6 +55,7 @@ function loadDraft(): DraftSnapshot | null {
       recipientName: typeof parsed.recipientName === "string" ? parsed.recipientName : "",
       recipientEmail: typeof parsed.recipientEmail === "string" ? parsed.recipientEmail : "",
       body: typeof parsed.body === "string" ? parsed.body : "",
+      sendByEmail: typeof parsed.sendByEmail === "boolean" ? parsed.sendByEmail : false,
     };
   } catch {
     return null;
@@ -83,6 +84,10 @@ function clearDraft(): void {
   }
 }
 
+function looksLikeEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
 export default function CreateTinyKindCard({
   senderDefaultName = "",
   senderEmail,
@@ -94,6 +99,7 @@ export default function CreateTinyKindCard({
   const [recipientName, setRecipientName] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
   const [body, setBody] = useState("");
+  const [sendByEmail, setSendByEmail] = useState(false);
   const [website, setWebsite] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -118,6 +124,7 @@ export default function CreateTinyKindCard({
     setRecipientName(draft.recipientName);
     setRecipientEmail(draft.recipientEmail);
     setBody(draft.body);
+    setSendByEmail(draft.sendByEmail || Boolean(draft.recipientEmail));
     setDraftLoaded(true);
   }, [draftLoaded, senderDefaultName]);
 
@@ -138,12 +145,13 @@ export default function CreateTinyKindCard({
       recipientName,
       recipientEmail,
       body,
+      sendByEmail,
     });
-  }, [draftLoaded, step, senderName, senderNotifyEmail, recipientName, recipientEmail, body]);
+  }, [draftLoaded, step, senderName, senderNotifyEmail, recipientName, recipientEmail, body, sendByEmail]);
 
   const charCount = body.length;
   const bodyTooLong = charCount > 500;
-  const deliveryMode: DeliveryMode = recipientEmail.trim() ? "email" : "link";
+  const deliveryMode: DeliveryMode = sendByEmail ? "email" : "link";
 
   const loginQuery = useMemo(() => {
     const params = new URLSearchParams({ next: "/" });
@@ -159,7 +167,7 @@ export default function CreateTinyKindCard({
   async function copyToClipboard(label: string, value: string): Promise<void> {
     try {
       await navigator.clipboard.writeText(value);
-      setCopied(`${label} copied`);
+      setCopied(label);
       setTimeout(() => setCopied(""), 1500);
     } catch {
       setCopied("Clipboard blocked");
@@ -169,7 +177,7 @@ export default function CreateTinyKindCard({
 
   function goToDetails(): void {
     if (!body.trim()) {
-      setError("Write your TinyKind message first.");
+      setError("Add your message first.");
       return;
     }
     if (bodyTooLong) {
@@ -178,6 +186,19 @@ export default function CreateTinyKindCard({
     }
     setError(null);
     setStep("details");
+  }
+
+  function resetComposer(): void {
+    setStep("compose");
+    setRecipientName("");
+    setRecipientEmail("");
+    setBody("");
+    setCreated(null);
+    setError(null);
+    setSendByEmail(false);
+    setGmailOpened(false);
+    setSendMarked(false);
+    clearDraft();
   }
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
@@ -194,15 +215,18 @@ export default function CreateTinyKindCard({
       setError("Add who this TinyKind is for.");
       return;
     }
-
-    const effectiveSenderName = senderEmail ? senderDefaultName.trim() || senderName.trim() : senderName.trim();
-    if (!effectiveSenderName) {
-      setError("Add your name, or sign in to autofill it.");
+    if (sendByEmail && !looksLikeEmail(recipientEmail)) {
+      setError("Add a valid recipient email.");
       return;
     }
 
-    if (!senderEmail && !senderNotifyEmail.trim()) {
-      setError("Add your email for reaction updates, or sign in.");
+    const effectiveSenderName = senderEmail ? senderDefaultName.trim() || senderName.trim() : senderName.trim();
+    if (!effectiveSenderName) {
+      setError("Add your name, or sign in.");
+      return;
+    }
+    if (!senderEmail && !looksLikeEmail(senderNotifyEmail)) {
+      setError("Add your email to receive reaction notifications.");
       return;
     }
 
@@ -218,9 +242,9 @@ export default function CreateTinyKindCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           senderName: effectiveSenderName,
-          senderNotifyEmail: senderEmail ?? senderNotifyEmail,
-          recipientName,
-          recipientEmail: recipientEmail.trim() || null,
+          senderNotifyEmail: senderEmail ?? senderNotifyEmail.trim(),
+          recipientName: recipientName.trim(),
+          recipientEmail: sendByEmail ? recipientEmail.trim() : null,
           body,
           website,
           deliveryMode,
@@ -231,8 +255,9 @@ export default function CreateTinyKindCard({
       if (!response.ok) {
         throw new Error("error" in payload ? payload.error : "Failed to create message.");
       }
-      clearDraft();
+
       setCreated(payload as CreateResponse);
+      clearDraft();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Failed to create message.");
     } finally {
@@ -250,7 +275,29 @@ export default function CreateTinyKindCard({
   }
 
   return (
-    <section className="panel p-5 md:p-7">
+    <section className="panel p-6 md:p-8">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ink-soft)]">
+          <span
+            className={`grid h-6 w-6 place-items-center rounded-full border ${
+              step === "compose" ? "border-[var(--accent)] bg-[#ffe8df] text-[var(--accent)]" : "border-[var(--line)]"
+            }`}
+          >
+            1
+          </span>
+          <span>Message</span>
+          <span className="text-[#b2bdd0]">→</span>
+          <span
+            className={`grid h-6 w-6 place-items-center rounded-full border ${
+              step === "details" ? "border-[var(--accent)] bg-[#ffe8df] text-[var(--accent)]" : "border-[var(--line)]"
+            }`}
+          >
+            2
+          </span>
+          <span>Send</span>
+        </div>
+      </div>
+
       <form className="grid gap-4" onSubmit={onSubmit}>
         <label aria-hidden="true" className="hidden">
           Website
@@ -264,21 +311,19 @@ export default function CreateTinyKindCard({
 
         {step === "compose" ? (
           <>
-            <label className="grid gap-1 text-sm font-medium">
+            <label className="grid gap-1 text-sm font-semibold">
               Message
               <textarea
-                className="field min-h-32 resize-y"
+                className="field min-h-40 resize-y text-[1.05rem]"
                 maxLength={500}
                 onChange={(event) => setBody(event.target.value)}
                 placeholder="I appreciate you because..."
                 value={body}
               />
             </label>
-
             <div className="text-sm text-[var(--ink-soft)]">
               {charCount}/500 {bodyTooLong ? "(too long)" : ""}
             </div>
-
             <div className="mt-1 flex items-center gap-3">
               <button className="btn btn-primary" disabled={bodyTooLong || loading} onClick={goToDetails} type="button">
                 Continue
@@ -288,10 +333,14 @@ export default function CreateTinyKindCard({
           </>
         ) : (
           <>
-            {!senderEmail ? (
-              <div className="rounded-xl border border-[var(--line)] bg-[#fff8ee] p-3 text-sm text-[var(--ink-soft)]">
-                <p className="text-[var(--ink)]">Sign in to autofill your info and save your TinyKind history.</p>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
+            {senderEmail ? (
+              <div className="rounded-xl border border-[var(--line)] bg-[#f2f6fd] px-3 py-2 text-sm text-[var(--ink)]">
+                From <strong>{senderDefaultName || senderName}</strong> ({senderEmail})
+              </div>
+            ) : (
+              <div className="rounded-xl border border-[var(--line)] bg-[#f2f6fd] p-3 text-sm text-[var(--ink-soft)]">
+                <p className="text-[var(--ink)]">Sign in to auto-fill your profile and save your TinyKind history.</p>
+                <div className="mt-2 flex flex-wrap gap-2">
                   {googleEnabled ? (
                     <a className="btn btn-primary inline-block px-4 py-2 text-sm" href={googleStartHref}>
                       Continue with Google
@@ -302,25 +351,33 @@ export default function CreateTinyKindCard({
                   </a>
                 </div>
               </div>
-            ) : (
-              <div className="rounded-xl border border-[var(--line)] bg-[#fff8ee] px-3 py-2 text-sm text-[var(--ink)]">
-                From <strong>{senderDefaultName || senderName}</strong> ({senderEmail})
-              </div>
             )}
 
             {!senderEmail ? (
-              <label className="grid gap-1 text-sm font-medium">
-                From
-                <input
-                  className="field"
-                  onChange={(event) => setSenderName(event.target.value)}
-                  placeholder="Your name"
-                  value={senderName}
-                />
-              </label>
+              <>
+                <label className="grid gap-1 text-sm font-semibold">
+                  From
+                  <input
+                    className="field"
+                    onChange={(event) => setSenderName(event.target.value)}
+                    placeholder="Your name"
+                    value={senderName}
+                  />
+                </label>
+                <label className="grid gap-1 text-sm font-semibold">
+                  Your email (to receive reaction notifications)
+                  <input
+                    className="field mono"
+                    onChange={(event) => setSenderNotifyEmail(event.target.value)}
+                    placeholder="you@email.com"
+                    type="email"
+                    value={senderNotifyEmail}
+                  />
+                </label>
+              </>
             ) : null}
 
-            <label className="grid gap-1 text-sm font-medium">
+            <label className="grid gap-1 text-sm font-semibold">
               To
               <input
                 className="field"
@@ -330,41 +387,48 @@ export default function CreateTinyKindCard({
               />
             </label>
 
-            <label className="grid gap-1 text-sm font-medium">
-              Recipient email (optional)
-              <input
-                className="field mono"
-                onChange={(event) => setRecipientEmail(event.target.value)}
-                placeholder="recipient@email.com"
-                type="email"
-                value={recipientEmail}
-              />
-            </label>
+            <div className="grid gap-2">
+              <div className="text-sm font-semibold">Delivery</div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className={`btn px-4 py-2 text-sm ${!sendByEmail ? "btn-primary" : ""}`}
+                  onClick={() => setSendByEmail(false)}
+                  type="button"
+                >
+                  Share a link
+                </button>
+                <button
+                  className={`btn px-4 py-2 text-sm ${sendByEmail ? "btn-primary" : ""}`}
+                  onClick={() => setSendByEmail(true)}
+                  type="button"
+                >
+                  Send in email
+                </button>
+              </div>
+            </div>
 
-            {!senderEmail ? (
-              <label className="grid gap-1 text-sm font-medium">
-                Your email (for reactions)
+            {sendByEmail ? (
+              <label className="grid gap-1 text-sm font-semibold">
+                Recipient email
                 <input
                   className="field mono"
-                  onChange={(event) => setSenderNotifyEmail(event.target.value)}
-                  placeholder="you@email.com"
+                  onChange={(event) => setRecipientEmail(event.target.value)}
+                  placeholder="recipient@email.com"
                   type="email"
-                  value={senderNotifyEmail}
+                  value={recipientEmail}
                 />
               </label>
             ) : null}
 
-            <label className="grid gap-1 text-sm font-medium">
+            <label className="grid gap-1 text-sm font-semibold">
               Message
               <textarea
-                className="field min-h-32 resize-y"
+                className="field min-h-28 resize-y"
                 maxLength={500}
                 onChange={(event) => setBody(event.target.value)}
-                placeholder="I appreciate you because..."
                 value={body}
               />
             </label>
-
             <div className="text-sm text-[var(--ink-soft)]">
               {charCount}/500 {bodyTooLong ? "(too long)" : ""}
             </div>
@@ -374,11 +438,7 @@ export default function CreateTinyKindCard({
                 Back
               </button>
               <button className="btn btn-primary" disabled={loading || bodyTooLong} type="submit">
-                {loading
-                  ? "Creating..."
-                  : deliveryMode === "email"
-                    ? "Create link + Gmail draft"
-                    : "Create TinyKind link"}
+                {loading ? "Creating..." : sendByEmail ? "Create link + Gmail draft" : "Create TinyKind link"}
               </button>
               {error ? <span className="text-sm text-[#a22d2d]">{error}</span> : null}
             </div>
@@ -387,9 +447,9 @@ export default function CreateTinyKindCard({
       </form>
 
       {created ? (
-        <div className="mt-5 rounded-xl border border-[var(--line)] bg-[#fff8ee] p-4">
-          <div className="text-sm font-semibold">Message created</div>
-          <a className="mono mt-2 block text-sm text-[#174a8c] underline" href={created.messageUrl}>
+        <div className="mt-6 rounded-2xl border border-[var(--line)] bg-[#f7f2e8] p-4">
+          <div className="text-lg font-semibold">Message created</div>
+          <a className="mono mt-2 block text-sm text-[#174a8c] underline" href={created.messageUrl} target="_blank">
             {created.messageUrl}
           </a>
 
@@ -399,8 +459,11 @@ export default function CreateTinyKindCard({
                 Open Gmail draft (you send)
               </button>
             ) : null}
-            <button className="btn text-sm" onClick={() => copyToClipboard("Link", created.messageUrl)} type="button">
+            <button className="btn text-sm" onClick={() => copyToClipboard("Link copied", created.messageUrl)} type="button">
               Copy link
+            </button>
+            <button className="btn text-sm" onClick={resetComposer} type="button">
+              New TinyKind
             </button>
             {created.deliveryMode === "email" && created.gmailComposeUrl ? (
               <button
@@ -423,7 +486,7 @@ export default function CreateTinyKindCard({
               </div>
               {gmailOpened && !sendMarked ? (
                 <div className="mt-1 text-xs text-[var(--ink-soft)]">
-                  After sending in Gmail, click &quot;I sent it&quot; here.
+                  After sending in Gmail, come back and click &quot;I sent it&quot;.
                 </div>
               ) : null}
               {sendMarked ? <div className="mt-1 text-xs text-[#174a8c]">Sent confirmed.</div> : null}
@@ -432,28 +495,27 @@ export default function CreateTinyKindCard({
             <div className="mt-2 text-xs text-[var(--ink-soft)]">{created.sharePreview}</div>
           )}
 
-          <div className="mt-2 text-sm text-[var(--ink-soft)]">Email preview:</div>
+          <div className="mt-3 text-sm text-[var(--ink-soft)]">Email body preview:</div>
           <div className="relative">
             <button
               aria-label="Copy full email body"
               className="btn absolute right-2 top-2 px-3 py-1 text-xs"
-              onClick={() => copyToClipboard("Body", created.emailBody)}
+              onClick={() => copyToClipboard("Body copied", created.emailBody)}
               title="Copy body"
               type="button"
             >
               ⧉
             </button>
-            <pre className="mono mt-2 overflow-x-auto rounded-lg bg-[#1e2834] p-3 pr-20 text-xs text-[#d7e7ff]">
-              {created.emailSubject}
-              {"\n\n"}
+            <pre className="mono mt-2 overflow-x-auto rounded-xl bg-[#1e2834] p-4 pr-20 text-xs text-[#d7e7ff]">
               {created.emailBody}
             </pre>
           </div>
-          {copied ? (
-            <div className="fixed bottom-5 right-5 z-20 rounded-full bg-[#1e2834] px-4 py-2 text-xs text-[#d7e7ff] shadow-lg">
-              {copied}
-            </div>
-          ) : null}
+        </div>
+      ) : null}
+
+      {copied ? (
+        <div className="fixed bottom-5 right-5 z-20 rounded-full bg-[#1e2834] px-4 py-2 text-xs text-[#d7e7ff] shadow-lg">
+          {copied}
         </div>
       ) : null}
     </section>
