@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { isAdminFromCookies } from "@/lib/adminAuth";
-import { getStorageDiagnostics, listRecentEvents, listRecentMessagesWithLatestReaction } from "@/lib/store";
+import { getStorageDiagnostics, listRecentEvents, listRecentMessagesWithLatestReaction, listRecentReports } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +38,7 @@ export default async function AdminPage({
     listRecentMessagesWithLatestReaction(500),
     listRecentEvents(120),
   ]);
+  const reports = await listRecentReports(120);
   const diagnostics = await getStorageDiagnostics();
   const failedNotifications = events.filter((event) => event.type === "reaction_notify_failed");
   const sentNotifications = events.filter((event) => event.type === "reaction_notify_sent");
@@ -86,8 +87,26 @@ export default async function AdminPage({
           <div>Notify failures logged: {failedNotifications.length}</div>
           <div>Open events logged: {openedEvents.length}</div>
           <div>Open notify failures: {openNotifyFailures.length}</div>
+          <div>Abuse reports: {reports.length}</div>
         </div>
       </section>
+
+      {reports.length > 0 ? (
+        <section className="panel mb-4 p-4 md:p-5">
+          <div className="text-sm text-[#263346]">
+            <strong>Recent abuse reports</strong>
+          </div>
+          <ul className="mt-2 grid gap-2 text-xs text-[#4b5d77]">
+            {reports.slice(0, 20).map((report) => (
+              <li key={report.id}>
+                {formatTimestamp(report.createdAt)} · /t/{report.slug} · {report.reason}
+                {report.reporterEmail ? ` · ${report.reporterEmail}` : ""}
+                {report.details ? ` · ${report.details}` : ""}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {failedNotifications.length > 0 ? (
         <section className="panel mb-4 p-4 md:p-5">

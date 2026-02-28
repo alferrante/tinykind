@@ -44,6 +44,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const existingCookie = request.cookies.get("tk_fp")?.value ?? null;
     const stableSeed = existingCookie ?? randomUUID();
     const recipientFingerprint = makeRecipientFingerprint(stableSeed);
+    const perMessageLimiter = enforceRateLimit(request, {
+      scope: "opens-per-message",
+      maxHits: 30,
+      windowMs: 10 * 60_000,
+      keySuffix: `${slug}:${recipientFingerprint}`,
+    });
+    if (!perMessageLimiter.ok) {
+      return NextResponse.json(
+        { error: "Too many open events for this TinyKind. Please try later." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(perMessageLimiter.retryAfterSeconds) },
+        },
+      );
+    }
     const { open, message, shouldNotify } = await recordOpen({ slug, recipientFingerprint });
 
     let notification: OpenNotificationStatus = {

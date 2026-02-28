@@ -4,6 +4,8 @@ import path from "node:path";
 import {
   type AllowedReactionEmoji,
   ALLOWED_REACTIONS,
+  type AbuseReport,
+  type AbuseReportReason,
   type Channel,
   type DeliveryMode,
   type MessageOpen,
@@ -20,6 +22,7 @@ interface TinyKindDb {
   messages: TinyKindMessage[];
   reactions: Reaction[];
   opens: MessageOpen[];
+  reports: AbuseReport[];
   senderProfiles: SenderProfile[];
   events: TinyKindEvent[];
 }
@@ -41,6 +44,7 @@ const EMPTY_DB: TinyKindDb = {
   messages: [],
   reactions: [],
   opens: [],
+  reports: [],
   senderProfiles: [],
   events: [],
 };
@@ -88,10 +92,16 @@ async function readDb(): Promise<TinyKindDb> {
     ...entry,
     notifiedAt: entry.notifiedAt ?? null,
   })) as MessageOpen[];
+  const reports = (parsed.reports ?? []).map((entry) => ({
+    ...entry,
+    details: entry.details ?? null,
+    reporterEmail: entry.reporterEmail ?? null,
+  })) as AbuseReport[];
   return {
     messages,
     reactions,
     opens,
+    reports,
     senderProfiles,
     events,
   };
@@ -256,6 +266,10 @@ function randomStyle(): UnwrapStyle {
 
 function isAllowedReaction(value: string): value is AllowedReactionEmoji {
   return ALLOWED_REACTIONS.includes(value as AllowedReactionEmoji);
+}
+
+function isAllowedReportReason(value: string): value is AbuseReportReason {
+  return value === "spam" || value === "harassment" || value === "scam" || value === "hate" || value === "other";
 }
 
 async function logEvent(
@@ -558,6 +572,65 @@ export async function getMessageWithLatestReactionBySlug(
       .filter((reaction) => reaction.messageId === message.id)
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0] ?? null;
   return { message, latestReaction };
+}
+
+interface CreateAbuseReportInput {
+  slug: string;
+  reason: string;
+  details?: string | null;
+  reporterFingerprint: string;
+  reporterEmail?: string | null;
+}
+
+export async function createAbuseReport(input: CreateAbuseReportInput): Promise<{
+  report: AbuseReport;
+  message: TinyKindMessage;
+}> {
+  if (!isAllowedReportReason(input.reason)) {
+    throw new Error("Unsupported report reason.");
+  }
+
+  const db = await readDb();
+  const message = db.messages.find(
+    (item) => item.shortLinkSlug === input.slug && item.status === "sent" && !item.deletedAt,
+  );
+  if (!message) {
+    throw new Error("Message not found.");
+  }
+
+  const details = input.details?.trim() || null;
+  if (details && details.length > 300) {
+    throw new Error("Report details must be 300 characters or fewer.");
+  }
+
+  const reporterEmail = validateOptionalEmail(input.reporterEmail);
+  const report: AbuseReport = {
+    id: randomUUID(),
+    messageId: message.id,
+    slug: message.shortLinkSlug,
+    reason: input.reason,
+    details,
+    reporterFingerprint: input.reporterFingerprint,
+    reporterEmail,
+    createdAt: new Date().toISOString(),
+  };
+  db.reports.push(report);
+  await logEvent(db, "message_reported", {
+    messageId: message.id,
+    senderEmail: message.senderNotifyEmail,
+    metadata: {
+      reason: report.reason,
+      slug: message.shortLinkSlug,
+      reporterEmail: reporterEmail ?? "",
+    },
+  });
+  await writeDb(db);
+  return { report, message };
+}
+
+export async function listRecentReports(limit = 200): Promise<AbuseReport[]> {
+  const db = await readDb();
+  return [...db.reports].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, limit);
 }
 
 export async function listRecentEvents(limit = 200): Promise<TinyKindEvent[]> {

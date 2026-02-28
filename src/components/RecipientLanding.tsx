@@ -36,6 +36,14 @@ interface OpenApiResponse {
   };
 }
 
+const REPORT_REASONS = [
+  { value: "spam", label: "Spam" },
+  { value: "harassment", label: "Harassment" },
+  { value: "scam", label: "Scam / phishing" },
+  { value: "hate", label: "Hate or harmful content" },
+  { value: "other", label: "Other" },
+] as const;
+
 export default function RecipientLanding({
   slug,
   senderName,
@@ -53,6 +61,12 @@ export default function RecipientLanding({
   const [reduceMotion, setReduceMotion] = useState(false);
   const [tiltX, setTiltX] = useState(0);
   const [tiltY, setTiltY] = useState(0);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState<string>("spam");
+  const [reportDetails, setReportDetails] = useState("");
+  const [reporterEmail, setReporterEmail] = useState("");
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [reportNotice, setReportNotice] = useState("");
 
   useEffect(() => {
     if (autoOpen) {
@@ -194,6 +208,38 @@ export default function RecipientLanding({
     }
   }
 
+  async function submitReport(): Promise<void> {
+    if (!reportReason) {
+      setReportNotice("Choose a reason.");
+      return;
+    }
+    try {
+      setReportSubmitting(true);
+      setReportNotice("");
+      const response = await fetch("/api/reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug,
+          reason: reportReason,
+          details: reportDetails,
+          reporterEmail,
+        }),
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Unable to submit report.");
+      }
+      setReportNotice("Report submitted. Thank you.");
+      setReportOpen(false);
+      setReportDetails("");
+    } catch (error) {
+      setReportNotice(error instanceof Error ? error.message : "Unable to submit report.");
+    } finally {
+      setReportSubmitting(false);
+    }
+  }
+
   return (
     <main className="tk-page" data-theme="midnight">
       <header className="tk-topbar">
@@ -291,10 +337,72 @@ export default function RecipientLanding({
         <Link className="tk-dockCTA" href="/">
           Send one back
         </Link>
+        <button className="tk-dockCTA" onClick={() => setReportOpen(true)} type="button">
+          Report
+        </button>
       </div>
 
       <div className="tk-dockNotice" data-visible={reactionNotice ? "true" : "false"}>
         {reactionNotice}
+      </div>
+
+      {reportOpen ? (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-[#04070c99] px-4">
+          <section className="w-full max-w-md rounded-2xl border border-[#ffffff2b] bg-[#0d1524ee] p-5 text-[#f4f8ff] shadow-2xl backdrop-blur">
+            <h2 className="text-lg font-semibold">Report TinyKind</h2>
+            <p className="mt-1 text-sm text-[#c5d3ef]">Help us prevent abuse. This sends a private report to TinyKind admin.</p>
+
+            <label className="mt-3 grid gap-1 text-sm">
+              Reason
+              <select
+                className="field !border-[#30415b] !bg-[#111e32] !text-[#f4f8ff]"
+                onChange={(event) => setReportReason(event.target.value)}
+                value={reportReason}
+              >
+                {REPORT_REASONS.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="mt-3 grid gap-1 text-sm">
+              Details (optional)
+              <textarea
+                className="field min-h-24 resize-y !border-[#30415b] !bg-[#111e32] !text-[#f4f8ff]"
+                maxLength={300}
+                onChange={(event) => setReportDetails(event.target.value)}
+                placeholder="Add context"
+                value={reportDetails}
+              />
+            </label>
+
+            <label className="mt-3 grid gap-1 text-sm">
+              Your email (optional)
+              <input
+                className="field mono !border-[#30415b] !bg-[#111e32] !text-[#f4f8ff]"
+                onChange={(event) => setReporterEmail(event.target.value)}
+                placeholder="you@email.com"
+                type="email"
+                value={reporterEmail}
+              />
+            </label>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button className="btn btn-primary" disabled={reportSubmitting} onClick={submitReport} type="button">
+                {reportSubmitting ? "Submitting..." : "Submit report"}
+              </button>
+              <button className="btn" onClick={() => setReportOpen(false)} type="button">
+                Cancel
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      <div className="tk-dockNotice" data-visible={reportNotice ? "true" : "false"}>
+        {reportNotice}
       </div>
     </main>
   );

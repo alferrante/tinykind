@@ -42,6 +42,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const existingCookie = request.cookies.get("tk_fp")?.value ?? null;
     const stableSeed = existingCookie ?? randomUUID();
     const recipientFingerprint = makeRecipientFingerprint(stableSeed);
+    const perMessageLimiter = enforceRateLimit(request, {
+      scope: "reactions-per-message",
+      maxHits: 12,
+      windowMs: 10 * 60_000,
+      keySuffix: `${slug}:${recipientFingerprint}`,
+    });
+    if (!perMessageLimiter.ok) {
+      return NextResponse.json(
+        { error: "Too many reaction updates for this TinyKind. Please try later." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(perMessageLimiter.retryAfterSeconds) },
+        },
+      );
+    }
     const { reaction, message, changed } = await upsertReaction({ slug, emoji, recipientFingerprint });
     const hasSenderEmail = Boolean(message.senderNotifyEmail);
     let notification: ReactionNotificationStatus = {

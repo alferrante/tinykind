@@ -41,6 +41,24 @@ export interface MessageOpen {
   notifiedAt: string | null;
 }
 
+export type AbuseReportReason =
+  | "spam"
+  | "harassment"
+  | "scam"
+  | "hate"
+  | "other";
+
+export interface AbuseReport {
+  id: string;
+  messageId: string;
+  slug: string;
+  reason: AbuseReportReason;
+  details: string | null;
+  reporterFingerprint: string;
+  reporterEmail: string | null;
+  createdAt: string;
+}
+
 export interface Reaction {
   id: string;
   messageId: string;
@@ -53,6 +71,7 @@ export interface Reaction {
 export type TinyKindEventType =
   | "message_created"
   | "message_deleted"
+  | "message_reported"
   | "reaction_saved"
   | "message_opened"
   | "reaction_notify_sent"

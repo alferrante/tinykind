@@ -20,9 +20,10 @@ function getClientKey(request: NextRequest): string {
 
 export function enforceRateLimit(
   request: NextRequest,
-  options: { scope: string; maxHits: number; windowMs: number },
+  options: { scope: string; maxHits: number; windowMs: number; keySuffix?: string | null },
 ): { ok: true } | { ok: false; retryAfterSeconds: number } {
-  const key = `${options.scope}:${getClientKey(request)}`;
+  const suffix = options.keySuffix ? `:${createHash("sha256").update(options.keySuffix).digest("hex").slice(0, 16)}` : "";
+  const key = `${options.scope}:${getClientKey(request)}${suffix}`;
   const timestamp = nowMs();
   const windowStart = timestamp - options.windowMs;
   const existing = buckets.get(key) ?? { hits: [] };
@@ -39,4 +40,3 @@ export function enforceRateLimit(
   buckets.set(key, existing);
   return { ok: true };
 }
-
