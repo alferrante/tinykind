@@ -331,7 +331,7 @@ export function makeRecipientFingerprint(seed: string): string {
 export interface CreateMessageInput {
   senderName: string;
   senderNotifyEmail?: string | null;
-  recipientName: string;
+  recipientName?: string | null;
   recipientContact?: string | null;
   body: string;
   deliveryMode?: DeliveryMode;
@@ -347,14 +347,21 @@ export interface CreateMessageInput {
 export async function createMessage(input: CreateMessageInput): Promise<TinyKindMessage> {
   const senderName = trimAndSingleSpace(input.senderName);
   const senderNotifyEmail = validateOptionalEmail(input.senderNotifyEmail);
-  const recipientName = trimAndSingleSpace(input.recipientName);
   const recipientContact = trimAndSingleSpace(input.recipientContact ?? "");
+  const deliveryMode: DeliveryMode = input.deliveryMode === "email" ? "email" : "link";
+  const normalizedRecipientName = trimAndSingleSpace(input.recipientName ?? "");
+  const recipientName =
+    normalizedRecipientName ||
+    (deliveryMode === "email" && recipientContact.includes("@")
+      ? recipientContact
+          .split("@")[0]
+          .replace(/[._-]+/g, " ")
+          .trim()
+          .replace(/\b\w/g, (char) => char.toUpperCase()) || "Someone"
+      : "Someone");
 
   if (!senderName) {
     throw new Error("senderName is required.");
-  }
-  if (!recipientName) {
-    throw new Error("recipientName is required.");
   }
   const db = await readDb();
   let slug = generateSlug();
@@ -363,7 +370,6 @@ export async function createMessage(input: CreateMessageInput): Promise<TinyKind
   }
 
   const now = new Date().toISOString();
-  const deliveryMode: DeliveryMode = input.deliveryMode === "email" ? "email" : "link";
   const channel: Channel = input.channel ?? (deliveryMode === "email" ? "email" : "sms");
   const message: TinyKindMessage = {
     id: randomUUID(),

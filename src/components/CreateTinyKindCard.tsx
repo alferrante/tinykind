@@ -211,7 +211,7 @@ export default function CreateTinyKindCard({
       setError("Message is required.");
       return;
     }
-    if (!recipientName.trim()) {
+    if (!sendByEmail && !recipientName.trim()) {
       setError("Add who this TinyKind is for.");
       return;
     }
@@ -243,7 +243,7 @@ export default function CreateTinyKindCard({
         body: JSON.stringify({
           senderName: effectiveSenderName,
           senderNotifyEmail: senderEmail ?? senderNotifyEmail.trim(),
-          recipientName: recipientName.trim(),
+          recipientName: sendByEmail ? "" : recipientName.trim(),
           recipientEmail: sendByEmail ? recipientEmail.trim() : null,
           body,
           website,
@@ -377,16 +377,6 @@ export default function CreateTinyKindCard({
               </>
             ) : null}
 
-            <label className="grid gap-1 text-sm font-semibold">
-              To
-              <input
-                className="field"
-                onChange={(event) => setRecipientName(event.target.value)}
-                placeholder="Who is this for?"
-                value={recipientName}
-              />
-            </label>
-
             <div className="grid gap-2">
               <div className="text-sm font-semibold">Delivery</div>
               <div className="flex flex-wrap gap-2">
@@ -406,6 +396,18 @@ export default function CreateTinyKindCard({
                 </button>
               </div>
             </div>
+
+            {!sendByEmail ? (
+              <label className="grid gap-1 text-sm font-semibold">
+                To
+                <input
+                  className="field"
+                  onChange={(event) => setRecipientName(event.target.value)}
+                  placeholder="Who is this for?"
+                  value={recipientName}
+                />
+              </label>
+            ) : null}
 
             {sendByEmail ? (
               <label className="grid gap-1 text-sm font-semibold">
