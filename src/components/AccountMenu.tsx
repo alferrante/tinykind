@@ -71,34 +71,38 @@ export default function AccountMenu({
       <button
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex h-11 items-center gap-2 rounded-full border border-[#ffffff4a] bg-[#0c203acc] px-2.5 text-left text-[#e9f0ff] shadow-md backdrop-blur transition hover:brightness-105"
+        className="flex h-11 items-center gap-2 rounded-full border border-[#E8E6E3] bg-[#F7F6F4] px-2.5 text-left text-[#2E2E2E] transition duration-150 ease-out hover:bg-[#FAFAF9]"
         onClick={() => setOpen((value) => !value)}
         type="button"
       >
-        <span className="grid h-7 w-7 place-items-center rounded-full bg-[#d6e4ff] text-base font-semibold text-[#1f3d73]">
-          {initial}
+        <span className="grid h-7 w-7 place-items-center rounded-full bg-gradient-to-b from-[#EFEDEC] to-[#DAD7D2] p-[1px]">
+          <span className="grid h-full w-full place-items-center rounded-full bg-[#E6ECEE] text-xs font-medium text-[#4E5556]">
+            {initial}
+          </span>
         </span>
-        <span className="hidden max-w-[150px] truncate text-sm font-medium md:block">{resolvedName}</span>
-        <span className="text-xs opacity-70">▾</span>
+        <span className="max-w-[180px] truncate text-base font-medium">{resolvedName}</span>
+        <span className="text-xs text-[#6B6B6B]">▼</span>
       </button>
 
       {open ? (
         <div
-          className="absolute right-0 z-30 mt-3 w-[300px] overflow-hidden rounded-2xl border border-[#d7deeb] bg-[#f7f9ff] text-[#1c2638] shadow-2xl"
+          className="absolute right-0 z-30 mt-3 w-[300px] overflow-hidden rounded-2xl border border-[#E8E6E3] bg-[#FFFFFF] text-[#2E2E2E] shadow-[0_10px_26px_rgba(0,0,0,0.06)]"
           role="menu"
         >
-          <div className="border-b border-[#dfe5f1] px-4 py-4">
+          <div className="border-b border-[#EFEDEB] px-4 py-4">
             <div className="flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-full bg-[#d6e4ff] text-xl font-semibold text-[#1f3d73]">
-                {initial}
+              <span className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-b from-[#EFEDEC] to-[#DAD7D2] p-[1px]">
+                <span className="grid h-full w-full place-items-center rounded-full bg-[#E6ECEE] text-base font-medium text-[#4E5556]">
+                  {initial}
+                </span>
               </span>
               <div>
-                <div className="text-base font-semibold">{resolvedName}</div>
-                <div className="mt-0.5 text-xs text-[#4a5a75]">{senderEmail}</div>
+                <div className="text-base font-medium">{resolvedName}</div>
+                <div className="mt-0.5 text-xs text-[#6B6B6B]">{senderEmail}</div>
               </div>
             </div>
             {typeof sentCount === "number" ? (
-              <div className="mt-3 inline-flex rounded-full border border-[#d5deed] bg-[#edf2fb] px-3 py-1 text-xs text-[#4a5a75]">
+              <div className="mt-3 inline-flex rounded-full border border-[#E8E6E3] bg-[#FAFAF9] px-3 py-1 text-xs text-[#6B6B6B]">
                 {sentCount} TinyKinds sent
               </div>
             ) : null}
@@ -107,7 +111,7 @@ export default function AccountMenu({
           <div className="px-2 py-2">
             {showDashboardLink ? (
               <Link
-                className="block rounded-xl px-3 py-2 text-sm hover:bg-[#e9eef9]"
+                className="block rounded-xl px-3 py-2 text-sm text-[#6B6B6B] transition duration-150 ease-out hover:bg-[#F1F1EF] hover:text-[#2E2E2E]"
                 href="/dashboard"
                 onClick={() => setOpen(false)}
                 role="menuitem"
@@ -117,7 +121,7 @@ export default function AccountMenu({
             ) : null}
             {showNewTinyKindLink ? (
               <Link
-                className="block rounded-xl px-3 py-2 text-sm hover:bg-[#e9eef9]"
+                className="block rounded-xl px-3 py-2 text-sm text-[#6B6B6B] transition duration-150 ease-out hover:bg-[#F1F1EF] hover:text-[#2E2E2E]"
                 href="/"
                 onClick={() => setOpen(false)}
                 role="menuitem"
@@ -127,9 +131,13 @@ export default function AccountMenu({
             ) : null}
           </div>
 
-          <div className="border-t border-[#dfe5f1] px-2 py-2">
+          <div className="border-t border-[#EFEDEB] px-2 py-2">
             <form action="/api/auth/logout" method="post">
-              <button className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-[#e9eef9]" role="menuitem" type="submit">
+              <button
+                className="block w-full rounded-xl px-3 py-2 text-left text-sm text-[#6B6B6B] transition duration-150 ease-out hover:bg-[#F1F1EF] hover:text-[#2E2E2E]"
+                role="menuitem"
+                type="submit"
+              >
                 Log out
               </button>
             </form>

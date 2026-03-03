@@ -20,12 +20,10 @@ export default async function AdminLoginPage({
   const passwordConfigured = Boolean(process.env.ADMIN_PASSWORD);
 
   return (
-    <main className="shell min-h-screen py-10">
+    <main className="min-h-screen bg-[#F7F6F4] px-6 py-10 text-[#2E2E2E]">
       <section className="panel mx-auto max-w-lg p-6 md:p-8">
-        <h1 className="text-3xl text-[#fff5df]">Admin Login</h1>
-        <p className="mt-2 text-sm text-[#dce7ff]">
-          Private page for TinyKind submissions.
-        </p>
+        <h1 className="text-3xl font-medium">Admin Login</h1>
+        <p className="mt-2 text-sm text-[#6B6B6B]">Private page for TinyKind submissions.</p>
 
         {!passwordConfigured ? (
           <p className="mt-5 rounded-xl border border-[#8a2e2e] bg-[#fff3f3] p-3 text-sm text-[#8a2e2e]">
@@ -34,7 +32,7 @@ export default async function AdminLoginPage({
         ) : null}
 
         <form action="/api/admin/login" className="mt-5 grid gap-3" method="post">
-          <label className="grid gap-1 text-sm font-medium text-[#fff5df]">
+          <label className="grid gap-1 text-sm font-medium text-[#2E2E2E]">
             Password
             <input
               className="field"

@@ -40,7 +40,7 @@ export default function LoginCard({ initialEmail = "", googleEnabled, nextPath }
   return (
     <section className="panel p-5 md:p-7">
       <h2 className="text-2xl leading-tight">Sign in to save your TinyKinds</h2>
-      <p className="mt-2 text-sm text-[var(--ink-soft)]">Use Google or get a one-time sign-in link by email.</p>
+      <p className="mt-2 text-sm text-[#6B6B6B]">Use Google or get a one-time sign-in link by email.</p>
 
       {googleEnabled ? (
         <div className="mt-4">
@@ -71,7 +71,7 @@ export default function LoginCard({ initialEmail = "", googleEnabled, nextPath }
         </div>
       </form>
 
-      {sent ? <p className="mt-3 text-sm text-[#174a8c]">Check your inbox for the sign-in link.</p> : null}
+      {sent ? <p className="mt-3 text-sm text-[#6B6B6B]">Check your inbox for the sign-in link.</p> : null}
       {error ? <p className="mt-3 text-sm text-[#a22d2d]">{error}</p> : null}
     </section>
   );

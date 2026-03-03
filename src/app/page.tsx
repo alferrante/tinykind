@@ -14,40 +14,52 @@ export default async function HomePage() {
     ? await Promise.all([countSentBySenderEmail(senderEmail), getSenderProfile(senderEmail)])
     : [null, null];
   const senderDefaultName = senderProfile?.displayName?.trim() || (senderEmail ? senderEmail.split("@")[0] ?? "" : "");
+  const greetingName = senderDefaultName ? senderDefaultName.split(/\s+/)[0] : "Angela";
 
   return (
-    <main className="shell min-h-screen py-8 md:py-12">
-      <header className="mb-6 md:mb-8">
-        <div className="mb-4 flex items-center justify-between gap-4">
+    <main className="min-h-screen bg-[#F7F6F4] text-[#2E2E2E]">
+      <header className="shell flex flex-col gap-4 px-1 pt-6 sm:flex-row sm:items-center sm:justify-between sm:pt-8">
+        <div className="flex items-center">
           <Image
             alt="tinykind"
-            className="h-auto w-[170px] md:w-[210px]"
+            className="h-auto w-[152px] sm:w-[182px]"
             height={48}
             priority
-            src="/branding-tinykind-light.png"
+            src="/branding-tinykind-dark.png"
             width={220}
           />
-          {senderEmail ? (
-            <AccountMenu
-              displayName={senderProfile?.displayName}
-              senderEmail={senderEmail}
-              sentCount={sentCount ?? undefined}
-              showDashboardLink
-            />
-          ) : (
-            <Link className="btn" href="/login?next=%2F">
-              Sign in
-            </Link>
-          )}
         </div>
-        <h1 className="text-4xl leading-[1.05] text-[#fff5df] md:text-5xl">
-          Make someone feel seen.
-        </h1>
+
+        {senderEmail ? (
+          <AccountMenu
+            displayName={senderProfile?.displayName}
+            senderEmail={senderEmail}
+            sentCount={sentCount ?? undefined}
+            showDashboardLink
+          />
+        ) : (
+          <Link className="btn self-end sm:self-auto" href="/login?next=%2F">
+            Sign in
+          </Link>
+        )}
       </header>
 
-      <div className="max-w-[860px]">
-        <CreateTinyKindCard googleEnabled={googleEnabled} senderDefaultName={senderDefaultName} senderEmail={senderEmail} />
-      </div>
+      <section className="mx-auto w-full max-w-[720px] px-6 pb-20 pt-16 sm:pt-24">
+        <div className="text-center">
+          <h1 className="text-[36px] font-medium leading-[1.2] tracking-[-0.02em] sm:text-[44px]">Hi {greetingName},</h1>
+          <p className="mt-4 text-[22px] font-normal leading-[1.3] text-[#2E2E2E] sm:text-[24px]">
+            Who would you like to appreciate today?
+          </p>
+        </div>
+
+        <div className="mt-10 sm:mt-12">
+          <CreateTinyKindCard
+            googleEnabled={googleEnabled}
+            senderDefaultName={senderDefaultName}
+            senderEmail={senderEmail}
+          />
+        </div>
+      </section>
     </main>
   );
 }

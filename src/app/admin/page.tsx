@@ -47,11 +47,12 @@ export default async function AdminPage({
   const openedEvents = events.filter((event) => event.type === "message_opened");
 
   return (
-    <main className="shell min-h-screen py-8 md:py-12">
+    <main className="min-h-screen bg-[#F7F6F4] text-[#2E2E2E]">
+      <section className="shell px-1 py-8 md:py-12">
       <header className="mb-6 flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl text-[#fff5df] md:text-4xl">TinyKind Admin</h1>
-          <p className="mt-2 text-sm text-[#dce7ff]">
+          <h1 className="text-3xl font-medium md:text-4xl">TinyKind Admin</h1>
+          <p className="mt-2 text-sm text-[#6B6B6B]">
             Showing {rows.length} most recent submission{rows.length === 1 ? "" : "s"}.
           </p>
         </div>
@@ -76,10 +77,10 @@ export default async function AdminPage({
       ) : null}
 
       <section className="panel mb-4 p-4 md:p-5">
-        <div className="text-sm text-[#263346]">
+        <div className="text-sm text-[#2E2E2E]">
           <strong>Storage diagnostics</strong>
         </div>
-        <div className="mt-2 grid gap-1 text-xs text-[#4b5d77]">
+        <div className="mt-2 grid gap-1 text-xs text-[#6B6B6B]">
           <div>Data file: {diagnostics.dataFile}</div>
           <div>Backup dir: {diagnostics.backupDir}</div>
           <div>Backups: {diagnostics.backupCount}</div>
@@ -93,10 +94,10 @@ export default async function AdminPage({
 
       {reports.length > 0 ? (
         <section className="panel mb-4 p-4 md:p-5">
-          <div className="text-sm text-[#263346]">
+          <div className="text-sm text-[#2E2E2E]">
             <strong>Recent abuse reports</strong>
           </div>
-          <ul className="mt-2 grid gap-2 text-xs text-[#4b5d77]">
+          <ul className="mt-2 grid gap-2 text-xs text-[#6B6B6B]">
             {reports.slice(0, 20).map((report) => (
               <li key={report.id}>
                 {formatTimestamp(report.createdAt)} · /t/{report.slug} · {report.reason}
@@ -110,10 +111,10 @@ export default async function AdminPage({
 
       {failedNotifications.length > 0 ? (
         <section className="panel mb-4 p-4 md:p-5">
-          <div className="text-sm text-[#263346]">
+          <div className="text-sm text-[#2E2E2E]">
             <strong>Recent notification failures</strong>
           </div>
-          <ul className="mt-2 grid gap-2 text-xs text-[#4b5d77]">
+          <ul className="mt-2 grid gap-2 text-xs text-[#6B6B6B]">
             {failedNotifications.slice(0, 10).map((event) => (
               <li key={event.id}>
                 {formatTimestamp(event.createdAt)} · {event.senderEmail ?? "unknown"} · {event.metadata.reason ?? "unknown reason"}
@@ -125,10 +126,10 @@ export default async function AdminPage({
 
       {sentNotifications.length > 0 ? (
         <section className="panel mb-4 p-4 md:p-5">
-          <div className="text-sm text-[#263346]">
+          <div className="text-sm text-[#2E2E2E]">
             <strong>Recent notification sends</strong>
           </div>
-          <ul className="mt-2 grid gap-2 text-xs text-[#4b5d77]">
+          <ul className="mt-2 grid gap-2 text-xs text-[#6B6B6B]">
             {sentNotifications.slice(0, 10).map((event) => (
               <li key={event.id}>
                 {formatTimestamp(event.createdAt)} · {event.senderEmail ?? "unknown"} · {event.metadata.emoji ?? "?"} ·
@@ -141,10 +142,10 @@ export default async function AdminPage({
 
       {openNotifyFailures.length > 0 ? (
         <section className="panel mb-4 p-4 md:p-5">
-          <div className="text-sm text-[#263346]">
+          <div className="text-sm text-[#2E2E2E]">
             <strong>Recent open notification failures</strong>
           </div>
-          <ul className="mt-2 grid gap-2 text-xs text-[#4b5d77]">
+          <ul className="mt-2 grid gap-2 text-xs text-[#6B6B6B]">
             {openNotifyFailures.slice(0, 10).map((event) => (
               <li key={event.id}>
                 {formatTimestamp(event.createdAt)} · {event.senderEmail ?? "unknown"} ·
@@ -158,10 +159,10 @@ export default async function AdminPage({
 
       {openNotifySent.length > 0 ? (
         <section className="panel mb-4 p-4 md:p-5">
-          <div className="text-sm text-[#263346]">
+          <div className="text-sm text-[#2E2E2E]">
             <strong>Recent open notification sends</strong>
           </div>
-          <ul className="mt-2 grid gap-2 text-xs text-[#4b5d77]">
+          <ul className="mt-2 grid gap-2 text-xs text-[#6B6B6B]">
             {openNotifySent.slice(0, 10).map((event) => (
               <li key={event.id}>
                 {formatTimestamp(event.createdAt)} · {event.senderEmail ?? "unknown"} · duration{" "}
@@ -174,23 +175,23 @@ export default async function AdminPage({
 
       <section className="panel p-5 md:p-7">
         {rows.length === 0 ? (
-          <p className="text-sm text-[var(--ink-soft)]">No TinyKinds found yet.</p>
+          <p className="text-sm text-[#6B6B6B]">No TinyKinds found yet.</p>
         ) : (
           <ul className="grid gap-3">
             {rows.map(({ message, latestReaction }) => (
-              <li key={message.id} className="rounded-xl border border-[var(--line)] bg-[#fff8ee] p-4">
+              <li key={message.id} className="rounded-xl border border-[#E8E6E3] bg-[#FFFFFF] p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="text-sm text-[#263346]">
+                  <div className="text-sm text-[#2E2E2E]">
                     <strong>{message.senderName}</strong> to <strong>{message.recipientName}</strong>
                   </div>
-                  <div className="text-xs text-[#4b5d77]">{formatTimestamp(message.createdAt)}</div>
+                  <div className="text-xs text-[#6B6B6B]">{formatTimestamp(message.createdAt)}</div>
                 </div>
 
-                <div className="mt-2 whitespace-pre-wrap break-words text-sm text-[#263346]">
+                <div className="mt-2 whitespace-pre-wrap break-words text-sm text-[#2E2E2E]">
                   {message.body}
                 </div>
 
-                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[#4b5d77]">
+                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[#6B6B6B]">
                   <span>Contact: {message.recipientContact ?? "not provided"}</span>
                   <span>Channel: {message.channel}</span>
                   <span>
@@ -199,7 +200,7 @@ export default async function AdminPage({
                   <span>
                     Latest reaction: {latestReaction ? `${latestReaction.emoji} (${formatTimestamp(latestReaction.createdAt)})` : "none"}
                   </span>
-                  <Link className="mono text-[#174a8c] underline" href={`/t/${message.shortLinkSlug}`} target="_blank">
+                  <Link className="mono text-[#6B6B6B] underline" href={`/t/${message.shortLinkSlug}`} target="_blank">
                     /t/{message.shortLinkSlug}
                   </Link>
                 </div>
@@ -207,6 +208,7 @@ export default async function AdminPage({
             ))}
           </ul>
         )}
+      </section>
       </section>
     </main>
   );

@@ -84,12 +84,12 @@ export default function DashboardReminderForm({ initial }: { initial: ReminderSt
       <button className="flex w-full items-start justify-between gap-4 text-left" onClick={() => setExpanded((prev) => !prev)} type="button">
         <div>
           <h2 className="text-2xl leading-tight">Weekly reminder</h2>
-          <p className="mt-1 text-sm text-[var(--ink-soft)]">Who made your week a little better? Send them a TinyKind.</p>
-          <div className="mt-2 inline-flex rounded-full border border-[var(--line)] bg-[#f2f6fd] px-3 py-1 text-xs text-[var(--ink-soft)]">
+          <p className="mt-1 text-sm text-[#6B6B6B]">Who made your week a little better? Send them a TinyKind.</p>
+          <div className="mt-2 inline-flex rounded-full border border-[#E8E6E3] bg-[#FFFFFF] px-3 py-1 text-xs text-[#6B6B6B]">
             {formatSummary(state)}
           </div>
         </div>
-        <span className="mt-1 rounded-full border border-[var(--line)] bg-[#ffffff] px-3 py-1 text-xs font-semibold text-[var(--ink)]">
+        <span className="mt-1 rounded-full border border-[#E8E6E3] bg-[#ffffff] px-3 py-1 text-xs font-semibold text-[#2E2E2E]">
           {expanded ? "Hide" : "Edit"}
         </span>
       </button>
@@ -163,7 +163,7 @@ export default function DashboardReminderForm({ initial }: { initial: ReminderSt
         </form>
       ) : null}
 
-      {notice ? <p className="mt-3 text-sm text-[#174a8c]">{notice}</p> : null}
+      {notice ? <p className="mt-3 text-sm text-[#6B6B6B]">{notice}</p> : null}
     </section>
   );
 }

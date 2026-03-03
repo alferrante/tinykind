@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import SuggestionRow from "@/components/SuggestionRow";
 import type { DeliveryMode } from "@/lib/types";
 
 interface CreatedMessage {
@@ -37,6 +38,11 @@ interface DraftSnapshot {
 }
 
 const DRAFT_STORAGE_KEY = "tinykind-compose-draft-v4";
+const SUGGESTIONS = [
+  "A teammate who helped this week",
+  "Someone who showed up for you",
+  "A friend who made you laugh",
+] as const;
 
 function loadDraft(): DraftSnapshot | null {
   if (typeof window === "undefined") {
@@ -152,6 +158,7 @@ export default function CreateTinyKindCard({
   const charCount = body.length;
   const bodyTooLong = charCount > 500;
   const deliveryMode: DeliveryMode = sendByEmail ? "email" : "link";
+  const isMessageEmpty = body.trim().length === 0;
 
   const loginQuery = useMemo(() => {
     const params = new URLSearchParams({ next: "/" });
@@ -173,6 +180,16 @@ export default function CreateTinyKindCard({
       setCopied("Clipboard blocked");
       setTimeout(() => setCopied(""), 1500);
     }
+  }
+
+  function applySuggestion(suggestion: string): void {
+    setBody((current) => {
+      if (current.trim().length === 0) {
+        return `${suggestion}: `.slice(0, 500);
+      }
+      const next = `${current.trimEnd()} ${suggestion}.`;
+      return next.slice(0, 500);
+    });
   }
 
   function goToDetails(): void {
@@ -275,29 +292,7 @@ export default function CreateTinyKindCard({
   }
 
   return (
-    <section className="panel p-6 md:p-8">
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ink-soft)]">
-          <span
-            className={`grid h-6 w-6 place-items-center rounded-full border ${
-              step === "compose" ? "border-[var(--accent)] bg-[#ffe8df] text-[var(--accent)]" : "border-[var(--line)]"
-            }`}
-          >
-            1
-          </span>
-          <span>Message</span>
-          <span className="text-[#b2bdd0]">→</span>
-          <span
-            className={`grid h-6 w-6 place-items-center rounded-full border ${
-              step === "details" ? "border-[var(--accent)] bg-[#ffe8df] text-[var(--accent)]" : "border-[var(--line)]"
-            }`}
-          >
-            2
-          </span>
-          <span>Send</span>
-        </div>
-      </div>
-
+    <section>
       <form className="grid gap-4" onSubmit={onSubmit}>
         <label aria-hidden="true" className="hidden">
           Website
@@ -311,36 +306,58 @@ export default function CreateTinyKindCard({
 
         {step === "compose" ? (
           <>
-            <label className="grid gap-1 text-sm font-semibold">
-              Message
+            <div className="overflow-hidden rounded-[20px] border border-[#E8E6E3] bg-[#FAFAF9] transition duration-150 ease-out focus-within:border-[#B7C4C7] focus-within:shadow-[0_0_0_3px_rgba(183,196,199,0.22)]">
               <textarea
-                className="field min-h-40 resize-y text-[1.05rem]"
+                className="min-h-[156px] w-full resize-none bg-transparent px-6 py-6 text-[17px] leading-[1.6] placeholder:text-[#9A9A9A] focus:outline-none"
                 maxLength={500}
                 onChange={(event) => setBody(event.target.value)}
                 placeholder="I appreciate you because..."
                 value={body}
               />
-            </label>
-            <div className="text-sm text-[var(--ink-soft)]">
-              {charCount}/500 {bodyTooLong ? "(too long)" : ""}
+
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#EFEDEB] px-6 py-4">
+                <span className="text-sm text-[#9A9A9A]">
+                  {charCount}/500 {bodyTooLong ? "(too long)" : ""}
+                </span>
+                <button
+                  className={[
+                    "rounded-full px-6 py-2.5 text-base font-medium text-white transition duration-150 ease-out",
+                    isMessageEmpty || bodyTooLong
+                      ? "cursor-not-allowed bg-[#B7C4C7]/55"
+                      : "bg-[#B7C4C7] hover:bg-[#A6B4B8] active:scale-[1.01]",
+                  ].join(" ")}
+                  disabled={isMessageEmpty || bodyTooLong}
+                  onClick={goToDetails}
+                  type="button"
+                >
+                  Send kindness <span aria-hidden>→</span>
+                </button>
+              </div>
             </div>
-            <div className="mt-1 flex items-center gap-3">
-              <button className="btn btn-primary" disabled={bodyTooLong || loading} onClick={goToDetails} type="button">
-                Continue
-              </button>
-              {error ? <span className="text-sm text-[#a22d2d]">{error}</span> : null}
-            </div>
+
+            <SuggestionRow onSelect={applySuggestion} suggestions={SUGGESTIONS} />
           </>
         ) : (
-          <>
+          <section className="panel p-6 sm:p-7">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-[24px] font-medium leading-tight text-[#2E2E2E]">Share this TinyKind</h2>
+              <button
+                className="rounded-full bg-transparent px-3 py-1.5 text-sm text-[#6B6B6B] transition duration-150 ease-out hover:bg-[#F1F1EF] hover:text-[#2E2E2E]"
+                onClick={() => setStep("compose")}
+                type="button"
+              >
+                Back to message
+              </button>
+            </div>
+
             {senderEmail ? (
-              <div className="rounded-xl border border-[var(--line)] bg-[#f2f6fd] px-3 py-2 text-sm text-[var(--ink)]">
-                From <strong>{senderDefaultName || senderName}</strong> ({senderEmail})
+              <div className="rounded-xl border border-[#E8E6E3] bg-[#FFFFFF] px-4 py-3 text-sm text-[#6B6B6B]">
+                From <span className="font-medium text-[#2E2E2E]">{senderDefaultName || senderName}</span> ({senderEmail})
               </div>
             ) : (
-              <div className="rounded-xl border border-[var(--line)] bg-[#f2f6fd] p-3 text-sm text-[var(--ink-soft)]">
-                <p className="text-[var(--ink)]">Sign in to auto-fill your profile and save your TinyKind history.</p>
-                <div className="mt-2 flex flex-wrap gap-2">
+              <div className="rounded-xl border border-[#E8E6E3] bg-[#FFFFFF] p-4 text-sm text-[#6B6B6B]">
+                <p className="text-[#2E2E2E]">Sign in to save your TinyKind history and use your profile automatically.</p>
+                <div className="mt-3 flex flex-wrap gap-2">
                   {googleEnabled ? (
                     <a className="btn btn-primary inline-block px-4 py-2 text-sm" href={googleStartHref}>
                       Continue with Google
@@ -353,119 +370,121 @@ export default function CreateTinyKindCard({
               </div>
             )}
 
-            {!senderEmail ? (
-              <>
-                <label className="grid gap-1 text-sm font-semibold">
-                  From
+            <div className="mt-4 grid gap-3">
+              {!senderEmail ? (
+                <>
+                  <label className="grid gap-1 text-sm font-medium text-[#2E2E2E]">
+                    From
+                    <input
+                      className="field"
+                      onChange={(event) => setSenderName(event.target.value)}
+                      placeholder="Your name"
+                      value={senderName}
+                    />
+                  </label>
+                  <label className="grid gap-1 text-sm font-medium text-[#2E2E2E]">
+                    Your email (reaction notifications)
+                    <input
+                      className="field mono"
+                      onChange={(event) => setSenderNotifyEmail(event.target.value)}
+                      placeholder="you@email.com"
+                      type="email"
+                      value={senderNotifyEmail}
+                    />
+                  </label>
+                </>
+              ) : null}
+
+              <div className="grid gap-2">
+                <div className="text-sm font-medium text-[#2E2E2E]">Delivery</div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className={`btn px-4 py-2 text-sm ${!sendByEmail ? "btn-primary" : ""}`}
+                    onClick={() => setSendByEmail(false)}
+                    type="button"
+                  >
+                    Share a link
+                  </button>
+                  <button
+                    className={`btn px-4 py-2 text-sm ${sendByEmail ? "btn-primary" : ""}`}
+                    onClick={() => setSendByEmail(true)}
+                    type="button"
+                  >
+                    Send in email
+                  </button>
+                </div>
+              </div>
+
+              {!sendByEmail ? (
+                <label className="grid gap-1 text-sm font-medium text-[#2E2E2E]">
+                  To
                   <input
                     className="field"
-                    onChange={(event) => setSenderName(event.target.value)}
-                    placeholder="Your name"
-                    value={senderName}
+                    onChange={(event) => setRecipientName(event.target.value)}
+                    placeholder="Who is this for?"
+                    value={recipientName}
                   />
                 </label>
-                <label className="grid gap-1 text-sm font-semibold">
-                  Your email (to receive reaction notifications)
+              ) : null}
+
+              {sendByEmail ? (
+                <label className="grid gap-1 text-sm font-medium text-[#2E2E2E]">
+                  Recipient email
                   <input
                     className="field mono"
-                    onChange={(event) => setSenderNotifyEmail(event.target.value)}
-                    placeholder="you@email.com"
+                    onChange={(event) => setRecipientEmail(event.target.value)}
+                    placeholder="recipient@email.com"
                     type="email"
-                    value={senderNotifyEmail}
+                    value={recipientEmail}
                   />
                 </label>
-              </>
-            ) : null}
+              ) : null}
 
-            <div className="grid gap-2">
-              <div className="text-sm font-semibold">Delivery</div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  className={`btn px-4 py-2 text-sm ${!sendByEmail ? "btn-primary" : ""}`}
-                  onClick={() => setSendByEmail(false)}
-                  type="button"
-                >
-                  Share a link
+              <label className="grid gap-1 text-sm font-medium text-[#2E2E2E]">
+                Message
+                <textarea
+                  className="field min-h-28 resize-y"
+                  maxLength={500}
+                  onChange={(event) => setBody(event.target.value)}
+                  value={body}
+                />
+              </label>
+
+              <div className="text-sm text-[#6B6B6B]">
+                {charCount}/500 {bodyTooLong ? "(too long)" : ""}
+              </div>
+
+              <div className="mt-1 flex flex-wrap items-center gap-3">
+                <button className="btn btn-primary" disabled={loading || bodyTooLong} type="submit">
+                  {loading ? "Creating..." : sendByEmail ? "Share this via Gmail" : "Share this"}
                 </button>
-                <button
-                  className={`btn px-4 py-2 text-sm ${sendByEmail ? "btn-primary" : ""}`}
-                  onClick={() => setSendByEmail(true)}
-                  type="button"
-                >
-                  Send in email
-                </button>
+                {error ? <span className="text-sm text-[#A22D2D]">{error}</span> : null}
               </div>
             </div>
-
-            {!sendByEmail ? (
-              <label className="grid gap-1 text-sm font-semibold">
-                To
-                <input
-                  className="field"
-                  onChange={(event) => setRecipientName(event.target.value)}
-                  placeholder="Who is this for?"
-                  value={recipientName}
-                />
-              </label>
-            ) : null}
-
-            {sendByEmail ? (
-              <label className="grid gap-1 text-sm font-semibold">
-                Recipient email
-                <input
-                  className="field mono"
-                  onChange={(event) => setRecipientEmail(event.target.value)}
-                  placeholder="recipient@email.com"
-                  type="email"
-                  value={recipientEmail}
-                />
-              </label>
-            ) : null}
-
-            <label className="grid gap-1 text-sm font-semibold">
-              Message
-              <textarea
-                className="field min-h-28 resize-y"
-                maxLength={500}
-                onChange={(event) => setBody(event.target.value)}
-                value={body}
-              />
-            </label>
-            <div className="text-sm text-[var(--ink-soft)]">
-              {charCount}/500 {bodyTooLong ? "(too long)" : ""}
-            </div>
-
-            <div className="mt-1 flex flex-wrap items-center gap-3">
-              <button className="btn" onClick={() => setStep("compose")} type="button">
-                Back
-              </button>
-              <button className="btn btn-primary" disabled={loading || bodyTooLong} type="submit">
-                {loading ? "Creating..." : sendByEmail ? "Create link + Gmail draft" : "Create TinyKind link"}
-              </button>
-              {error ? <span className="text-sm text-[#a22d2d]">{error}</span> : null}
-            </div>
-          </>
+          </section>
         )}
       </form>
 
+      {error && step === "compose" ? <div className="mt-3 text-sm text-[#A22D2D]">{error}</div> : null}
+
       {created ? (
-        <div className="mt-6 rounded-2xl border border-[var(--line)] bg-[#f7f2e8] p-4">
-          <div className="text-lg font-semibold">Message created</div>
-          <a className="mono mt-2 block text-sm text-[#174a8c] underline" href={created.messageUrl} target="_blank">
+        <div className="panel mt-6 p-5 sm:p-6">
+          <div className="text-lg font-medium text-[#2E2E2E]">Kindness ready to send</div>
+          <a className="mono mt-2 block text-sm text-[#6B6B6B] underline" href={created.messageUrl} target="_blank">
             {created.messageUrl}
           </a>
 
           <div className="mt-3 flex flex-wrap gap-2">
             {created.deliveryMode === "email" && created.gmailComposeUrl ? (
               <button className="btn btn-primary inline-block text-sm" onClick={openGmailDraft} type="button">
-                Open Gmail draft (you send)
+                Open Gmail draft
               </button>
             ) : null}
             <button className="btn text-sm" onClick={() => copyToClipboard("Link copied", created.messageUrl)} type="button">
               Copy link
             </button>
             <button className="btn text-sm" onClick={resetComposer} type="button">
-              New TinyKind
+              Make another
             </button>
             {created.deliveryMode === "email" && created.gmailComposeUrl ? (
               <button
@@ -483,21 +502,21 @@ export default function CreateTinyKindCard({
 
           {created.deliveryMode === "email" ? (
             <>
-              <div className="mt-3 text-sm text-[var(--ink-soft)]">
+              <div className="mt-3 text-sm text-[#6B6B6B]">
                 Recipient email: {created.recipientEmail ?? "Not provided (add recipient in Gmail)"}
               </div>
               {gmailOpened && !sendMarked ? (
-                <div className="mt-1 text-xs text-[var(--ink-soft)]">
+                <div className="mt-1 text-xs text-[#6B6B6B]">
                   After sending in Gmail, come back and click &quot;I sent it&quot;.
                 </div>
               ) : null}
-              {sendMarked ? <div className="mt-1 text-xs text-[#174a8c]">Sent confirmed.</div> : null}
+              {sendMarked ? <div className="mt-1 text-xs text-[#6B6B6B]">Sent confirmed.</div> : null}
             </>
           ) : (
-            <div className="mt-2 text-xs text-[var(--ink-soft)]">{created.sharePreview}</div>
+            <div className="mt-2 text-xs text-[#6B6B6B]">{created.sharePreview}</div>
           )}
 
-          <div className="mt-3 text-sm text-[var(--ink-soft)]">Email body preview:</div>
+          <div className="mt-3 text-sm text-[#6B6B6B]">Email body preview:</div>
           <div className="relative">
             <button
               aria-label="Copy full email body"
@@ -508,7 +527,7 @@ export default function CreateTinyKindCard({
             >
               ⧉
             </button>
-            <pre className="mono mt-2 overflow-x-auto rounded-xl bg-[#1e2834] p-4 pr-20 text-xs text-[#d7e7ff]">
+            <pre className="mono mt-2 overflow-x-auto rounded-xl border border-[#E8E6E3] bg-[#FFFFFF] p-4 pr-20 text-xs text-[#2E2E2E]">
               {created.emailBody}
             </pre>
           </div>
@@ -516,7 +535,7 @@ export default function CreateTinyKindCard({
       ) : null}
 
       {copied ? (
-        <div className="fixed bottom-5 right-5 z-20 rounded-full bg-[#1e2834] px-4 py-2 text-xs text-[#d7e7ff] shadow-lg">
+        <div className="fixed bottom-5 right-5 z-20 rounded-full border border-[#E8E6E3] bg-[#FFFFFF] px-4 py-2 text-xs text-[#6B6B6B] shadow-sm">
           {copied}
         </div>
       ) : null}

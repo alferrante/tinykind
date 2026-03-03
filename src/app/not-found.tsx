@@ -3,21 +3,24 @@ import Link from "next/link";
 
 export default function NotFoundPage() {
   return (
-    <main className="shell min-h-screen py-10">
-      <section className="panel mx-auto max-w-xl p-8 text-center">
+    <main className="min-h-screen bg-[#F7F6F4] px-6 py-14 text-[#2E2E2E]">
+      <section className="mx-auto max-w-[640px] rounded-[20px] border border-[#E8E6E3] bg-[#FAFAF9] px-8 py-10 text-center">
         <Image
           alt="tinykind"
-          className="mx-auto h-auto w-[150px]"
-          height={42}
+          className="mx-auto h-auto w-[136px] sm:w-[172px]"
+          height={48}
           priority
           src="/branding-tinykind-dark.png"
-          width={182}
+          width={220}
         />
-        <h1 className="mt-2 text-3xl">This note is unavailable</h1>
-        <p className="mt-3 text-sm text-[var(--ink-soft)]">
+        <h1 className="mt-6 text-3xl font-medium leading-tight sm:text-4xl">This note is unavailable</h1>
+        <p className="mt-4 text-base leading-relaxed text-[#6B6B6B]">
           The TinyKind link may be expired or deleted.
         </p>
-        <Link className="mt-5 inline-block text-sm font-semibold text-[#174a8c] underline" href="/">
+        <Link
+          className="mt-7 inline-flex rounded-full border border-[#E8E6E3] bg-white px-4 py-2 text-sm text-[#6B6B6B] transition duration-150 ease-out hover:bg-[#F1F1EF] hover:text-[#2E2E2E]"
+          href="/"
+        >
           Return home
         </Link>
       </section>
