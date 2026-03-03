@@ -8,10 +8,11 @@ export default function NotFoundPage() {
         <Image
           alt="tinykind"
           className="mx-auto h-auto w-[136px] sm:w-[172px]"
-          height={48}
+          height={109}
           priority
           src="/branding-tinykind-dark.png"
-          width={220}
+          unoptimized
+          width={427}
         />
         <h1 className="mt-6 text-3xl font-medium leading-tight sm:text-4xl">This note is unavailable</h1>
         <p className="mt-4 text-base leading-relaxed text-[#6B6B6B]">

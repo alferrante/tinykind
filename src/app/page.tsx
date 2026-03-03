@@ -22,11 +22,12 @@ export default async function HomePage() {
         <div className="flex items-center">
           <Image
             alt="tinykind"
-            className="h-auto w-[152px] sm:w-[182px]"
-            height={48}
+            className="h-auto w-[136px] sm:w-[172px]"
+            height={109}
             priority
             src="/branding-tinykind-dark.png"
-            width={220}
+            unoptimized
+            width={427}
           />
         </div>
 

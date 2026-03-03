@@ -196,11 +196,12 @@ export default function RecipientLanding({
       <header className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-6 pt-6 sm:pt-8">
         <Image
           alt="tinykind"
-          className="h-auto w-[152px] sm:w-[182px]"
-          height={48}
+          className="h-auto w-[136px] sm:w-[172px]"
+          height={109}
           priority
           src="/branding-tinykind-dark.png"
-          width={220}
+          unoptimized
+          width={427}
         />
         <div className="flex items-center gap-3">
           <Link
