@@ -65,7 +65,7 @@ export default async function HomePage() {
         )}
       </header>
 
-      <section className="mx-auto w-full max-w-[780px] px-6 pb-20 pt-10 sm:pt-12">
+      <section className="mx-auto w-full max-w-[700px] px-5 pb-16 pt-8 sm:px-6 sm:pt-10">
         <CreateTinyKindCard
           googleEnabled={googleEnabled}
           greetingName={greetingName}

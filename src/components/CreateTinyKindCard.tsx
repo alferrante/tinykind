@@ -513,15 +513,15 @@ export default function CreateTinyKindCard({
 
       {step === "compose" ? (
         <>
-          <div className="mb-8 text-center sm:mb-9">
+          <div className="mb-7 text-center sm:mb-8">
             {streakSummary ? (
-              <div className="mb-6 flex flex-wrap items-center justify-center gap-3 text-center sm:mb-7">
+              <div className="mb-5 flex flex-wrap items-center justify-center gap-2.5 text-center sm:mb-6">
                 {streakSummary.currentStreak > 0 ? (
-                  <span className="rounded-full border border-[#F2C275] bg-[#FFF7E7] px-4 py-1.5 text-[13px] font-medium text-[#B8771E] sm:text-[14px]">
+                  <span className="rounded-full border border-[#F2C275] bg-[#FFF7E7] px-3.5 py-1.5 text-[12px] font-medium text-[#B8771E] sm:px-4 sm:text-[13px]">
                     🔥 {streakSummary.currentStreak}-week streak
                   </span>
                 ) : null}
-                <span className="text-[14px] text-[#8D7C67] sm:text-[15px]">
+                <span className="text-[13px] text-[#8D7C67] sm:text-[14px]">
                   {senderSentCount && senderSentCount > 0
                     ? `You've sent ${senderSentCount} TinyKind${senderSentCount === 1 ? "" : "s"} · keep it going`
                     : streakSummary.sentThisWeek
@@ -531,10 +531,10 @@ export default function CreateTinyKindCard({
               </div>
             ) : null}
 
-            <h1 className="text-[38px] font-medium leading-[1.08] tracking-[-0.03em] text-[#1F1F1F] sm:text-[56px]">
+            <h1 className="text-[34px] font-medium leading-[1.06] tracking-[-0.03em] text-[#1F1F1F] sm:text-[46px]">
               Hi {greetingName},
             </h1>
-            <p className="mt-3 text-[22px] leading-[1.22] text-[#3C3B39] sm:text-[24px]">
+            <p className="mt-2.5 text-[18px] leading-[1.24] text-[#3C3B39] sm:text-[20px]">
               Who would you like to appreciate today?
             </p>
           </div>
@@ -557,12 +557,12 @@ export default function CreateTinyKindCard({
 
           <div
             className={[
-              "overflow-hidden rounded-[18px] border bg-[#FAFAF9] transition duration-200 ease-out focus-within:border-[#DFC09C] focus-within:shadow-[0_0_0_4px_rgba(223,192,156,0.22)]",
+              "overflow-hidden rounded-[16px] border bg-[#FAFAF9] transition duration-200 ease-out focus-within:border-[#DFC09C] focus-within:shadow-[0_0_0_4px_rgba(223,192,156,0.22)]",
               suggestionPulse ? "border-[#DFC09C] shadow-[0_0_0_4px_rgba(223,192,156,0.18)]" : "border-[#E8C9BD]",
             ].join(" ")}
           >
             <textarea
-              className="min-h-[132px] w-full resize-none bg-transparent px-5 py-5 text-[16px] leading-[1.6] placeholder:text-[#9A9A9A] focus:outline-none sm:min-h-[144px] sm:px-6 sm:py-6 sm:text-[17px]"
+              className="min-h-[118px] w-full resize-none bg-transparent px-4 py-4 text-[15px] leading-[1.6] placeholder:text-[#9A9A9A] focus:outline-none sm:min-h-[126px] sm:px-5 sm:py-5 sm:text-[16px]"
               maxLength={500}
               onChange={(event) => {
                 if (suggestionIntervalRef.current) {
@@ -577,21 +577,21 @@ export default function CreateTinyKindCard({
               value={body}
             />
 
-            <div className="border-t border-[#EFE2D8] px-5 py-3 sm:px-6">
-              <label className="flex items-center gap-2 text-[15px] text-[#A18D7A] sm:text-[16px]">
+            <div className="border-t border-[#EFE2D8] px-4 py-2.5 sm:px-5">
+              <label className="flex items-center gap-2 text-[14px] text-[#A18D7A] sm:text-[15px]">
                 <span className="font-semibold text-[#A5917D]">For</span>
                 <input
                   className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[#7C6A5A] placeholder:text-[#C0B2A5] focus:outline-none"
                   onChange={(event) => setRecipientName(event.target.value)}
-                  placeholder="Joey, Sarah... (optional)"
+                  placeholder="Emily"
                   value={recipientName}
                 />
               </label>
             </div>
 
             {!senderEmail ? (
-              <div className="border-t border-[#EFE2D8] px-5 py-3 sm:px-6">
-                <label className="flex items-center gap-3 text-[15px] text-[#A18D7A] sm:text-[16px]">
+              <div className="border-t border-[#EFE2D8] px-4 py-2.5 sm:px-5">
+                <label className="flex items-center gap-3 text-[14px] text-[#A18D7A] sm:text-[15px]">
                   <span className="font-semibold text-[#A5917D]">Your email</span>
                   <input
                     className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[#7C6A5A] placeholder:text-[#C0B2A5] focus:outline-none"
@@ -604,13 +604,13 @@ export default function CreateTinyKindCard({
               </div>
             ) : null}
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#EFE2D8] px-5 py-3.5 sm:px-6 sm:py-4">
-              <span className={`text-sm transition-colors duration-150 ${counterClassName}`}>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#EFE2D8] px-4 py-3 sm:px-5 sm:py-3.5">
+              <span className={`text-[13px] transition-colors duration-150 sm:text-sm ${counterClassName}`}>
                 {charCount}/500 {bodyTooLong ? "(too long)" : ""}
               </span>
               <button
                 className={[
-                  "inline-flex min-w-[216px] items-center justify-center gap-2 rounded-full border px-5 py-2.5 text-[15px] font-semibold text-white transition duration-150 ease-out focus:outline-none focus-visible:ring-4 focus-visible:ring-[#F2C8BB] sm:px-6 sm:text-base",
+                  "inline-flex min-w-[188px] items-center justify-center gap-2 rounded-full border px-4.5 py-2.5 text-[14px] font-semibold text-white transition duration-150 ease-out focus:outline-none focus-visible:ring-4 focus-visible:ring-[#F2C8BB] sm:min-w-[200px] sm:px-5 sm:text-[15px]",
                   isMessageEmpty || bodyTooLong || loading
                     ? "cursor-not-allowed border-transparent bg-[#E7C8BE] text-white/85"
                     : "border-[#E45A1A] bg-[#E45A1A] hover:border-[#D84F12] hover:bg-[#D84F12] active:scale-[1.01]",
