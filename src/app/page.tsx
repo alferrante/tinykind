@@ -13,6 +13,14 @@ export const metadata: Metadata = {
   title: "Send a TinyKind 💛",
 };
 
+function formatGreetingName(value: string): string {
+  const first = value.trim().split(/\s+/)[0] ?? "";
+  if (!first) {
+    return "Angela";
+  }
+  return first.charAt(0).toUpperCase() + first.slice(1);
+}
+
 export default async function HomePage() {
   const senderEmail = await getAuthenticatedSenderEmail();
   const googleEnabled = isGoogleAuthConfigured();
@@ -22,7 +30,7 @@ export default async function HomePage() {
     ? await Promise.all([countSentBySenderEmail(senderEmail), getSenderStreakSummary(senderEmail, senderTimezone)])
     : [null, null];
   const senderDefaultName = senderProfile?.displayName?.trim() || (senderEmail ? senderEmail.split("@")[0] ?? "" : "");
-  const greetingName = senderDefaultName ? senderDefaultName.split(/\s+/)[0] : "Angela";
+  const greetingName = formatGreetingName(senderDefaultName);
   const promptSuggestions = getPromptSuggestionsForDate(
     new Date(),
     senderTimezone,
@@ -57,34 +65,16 @@ export default async function HomePage() {
         )}
       </header>
 
-      <section className="mx-auto w-full max-w-[720px] px-6 pb-20 pt-16 sm:pt-24">
-        <div className="text-center">
-          <h1 className="text-[36px] font-medium leading-[1.2] tracking-[-0.02em] sm:text-[44px]">Hi {greetingName},</h1>
-          <p className="mt-4 text-[22px] font-normal leading-[1.3] text-[#2E2E2E] sm:text-[24px]">
-            Who would you like to appreciate today?
-          </p>
-          {streakSummary ? (
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-sm">
-              <span className="rounded-full border border-[#E8E6E3] bg-[#FFFFFF] px-4 py-2 text-[#2E2E2E]">
-                {streakSummary.sentThisWeek ? "You sent a TinyKind this week ✓" : "No TinyKind sent yet this week"}
-              </span>
-              {streakSummary.currentStreak > 0 ? (
-                <span className="rounded-full border border-[#F2D9A6] bg-[#FFF8EA] px-4 py-2 font-medium text-[#8B5D1A]">
-                  🔥 {streakSummary.currentStreak}-week streak
-                </span>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="mt-10 sm:mt-12">
-          <CreateTinyKindCard
-            googleEnabled={googleEnabled}
-            promptSuggestions={promptSuggestions}
-            senderDefaultName={senderDefaultName}
-            senderEmail={senderEmail}
-          />
-        </div>
+      <section className="mx-auto w-full max-w-[860px] px-6 pb-20 pt-14 sm:pt-20">
+        <CreateTinyKindCard
+          googleEnabled={googleEnabled}
+          greetingName={greetingName}
+          promptSuggestions={promptSuggestions}
+          senderDefaultName={senderDefaultName}
+          senderEmail={senderEmail}
+          senderSentCount={sentCount}
+          streakSummary={streakSummary}
+        />
       </section>
     </main>
   );
