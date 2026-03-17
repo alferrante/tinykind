@@ -13,6 +13,10 @@ export interface EmailSendResult {
   providerMessageId?: string;
 }
 
+export function isTinyKindEmailConfigured(): boolean {
+  return Boolean(process.env.RESEND_API_KEY?.trim() && process.env.TINYKIND_REACTION_FROM_EMAIL?.trim());
+}
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")

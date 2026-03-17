@@ -256,8 +256,9 @@ export default function RecipientLanding({
           />
         </div>
         <div className="tk-actions">
-          <Link className="tk-ghost" href="/">
-            Make your own
+          <Link className="tk-ghost tk-ghostPrimary" href="/">
+            <span className="sm:hidden">Send kindness →</span>
+            <span className="hidden sm:inline">Send kindness to someone you love →</span>
           </Link>
           <button aria-label="Share" className="tk-ghost" onClick={onShare} type="button">
             Share
@@ -337,7 +338,8 @@ export default function RecipientLanding({
         })}
         <div className="tk-dockDivider" />
         <Link className="tk-dockCTA" href="/">
-          Send one back
+          <span className="sm:hidden">Send kindness</span>
+          <span className="hidden sm:inline">Send kindness to someone you love →</span>
         </Link>
         <button className="tk-dockCTA tk-dockCTASecondary" onClick={() => setReportOpen(true)} type="button">
           Report

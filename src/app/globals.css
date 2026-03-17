@@ -185,6 +185,12 @@ body {
   cursor: pointer;
 }
 
+.tk-ghostPrimary {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.24);
+  font-weight: 600;
+}
+
 .tk-shell {
   max-width: 1180px;
   margin: 0 auto;
@@ -488,10 +494,11 @@ body {
   padding: 10px 12px;
   border-radius: var(--tk-radius-pill);
   border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.16);
   color: var(--tk-fg);
   text-decoration: none;
   white-space: nowrap;
+  font-weight: 600;
 }
 
 button.tk-dockCTA {

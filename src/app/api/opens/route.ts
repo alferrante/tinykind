@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { isTinyKindEmailConfigured } from "@/lib/email";
 import { sendOpenNotification } from "@/lib/openNotification";
 import { enforceRateLimit } from "@/lib/rateLimit";
 import { addOperationalEvent, makeRecipientFingerprint, markOpenNotificationSent, recordOpen } from "@/lib/store";
@@ -15,7 +16,7 @@ interface OpenNotificationStatus {
 }
 
 function openNotifyEnabled(): boolean {
-  return process.env.OPEN_NOTIFY_ENABLED === "1";
+  return process.env.OPEN_NOTIFY_ENABLED !== "0" && isTinyKindEmailConfigured();
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {

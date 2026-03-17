@@ -668,6 +668,132 @@ export async function listMessagesBySenderEmail(
     .slice(0, limit);
 }
 
+export interface SenderStreakSummary {
+  sentThisWeek: boolean;
+  currentStreak: number;
+}
+
+export interface SenderActivityItem {
+  id: string;
+  type: "sent" | "opened" | "reaction";
+  createdAt: string;
+  recipientName: string;
+  messageId: string | null;
+  slug: string | null;
+  emoji: string | null;
+}
+
+function getLocalDateParts(
+  date: Date,
+  timezone: string,
+): { year: number; month: number; day: number; weekday: number } {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "short",
+  });
+  const parts = formatter.formatToParts(date);
+  const year = Number(parts.find((part) => part.type === "year")?.value ?? "1970");
+  const month = Number(parts.find((part) => part.type === "month")?.value ?? "1");
+  const day = Number(parts.find((part) => part.type === "day")?.value ?? "1");
+  const weekdayLabel = parts.find((part) => part.type === "weekday")?.value ?? "Sun";
+  const weekdayMap: Record<string, number> = {
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+  };
+  return {
+    year,
+    month,
+    day,
+    weekday: weekdayMap[weekdayLabel] ?? 0,
+  };
+}
+
+function getWeekStartMs(date: Date, timezone: string): number {
+  const local = getLocalDateParts(date, timezone);
+  const localMidnightMs = Date.UTC(local.year, local.month - 1, local.day);
+  const mondayOffset = (local.weekday + 6) % 7;
+  return localMidnightMs - mondayOffset * 24 * 60 * 60 * 1000;
+}
+
+export async function getSenderStreakSummary(
+  senderEmail: string,
+  timezone = "America/Los_Angeles",
+  now = new Date(),
+): Promise<SenderStreakSummary> {
+  const normalized = trimAndLower(senderEmail);
+  const db = await readDb();
+  const weekStarts = new Set<number>(
+    db.messages
+      .filter((message) => !message.deletedAt && message.senderNotifyEmail === normalized)
+      .map((message) => getWeekStartMs(new Date(message.createdAt), timezone)),
+  );
+
+  const currentWeekStart = getWeekStartMs(now, timezone);
+  const sentThisWeek = weekStarts.has(currentWeekStart);
+  let currentStreak = 0;
+  let cursor = currentWeekStart;
+  while (weekStarts.has(cursor)) {
+    currentStreak += 1;
+    cursor -= 7 * 24 * 60 * 60 * 1000;
+  }
+
+  return {
+    sentThisWeek,
+    currentStreak,
+  };
+}
+
+export async function listSenderActivityByEmail(
+  senderEmail: string,
+  limit = 12,
+): Promise<SenderActivityItem[]> {
+  const normalized = trimAndLower(senderEmail);
+  const db = await readDb();
+  const messagesById = new Map(db.messages.map((message) => [message.id, message]));
+
+  const rows = db.events
+    .filter((event) => event.senderEmail === normalized)
+    .filter(
+      (event) =>
+        event.type === "message_created" ||
+        event.type === "open_notify_sent" ||
+        event.type === "reaction_notify_sent",
+    )
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .slice(0, limit)
+    .map((event) => {
+      const message = event.messageId ? messagesById.get(event.messageId) : null;
+      const slug = message?.shortLinkSlug ?? event.metadata.slug ?? null;
+      const recipientName = message?.recipientName ?? "Someone";
+      const type: SenderActivityItem["type"] =
+        event.type === "message_created"
+          ? "sent"
+          : event.type === "open_notify_sent"
+            ? "opened"
+            : "reaction";
+
+      return {
+        id: event.id,
+        type,
+        createdAt: event.createdAt,
+        recipientName,
+        messageId: event.messageId,
+        slug,
+        emoji: event.metadata.emoji ?? null,
+      };
+    });
+
+  return rows;
+}
+
 export async function countSentBySenderEmail(senderEmail: string): Promise<number> {
   const normalized = trimAndLower(senderEmail);
   const db = await readDb();

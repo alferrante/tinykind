@@ -11,12 +11,12 @@ interface ReactionNotificationInput {
 export async function sendReactionNotification(
   input: ReactionNotificationInput,
 ): Promise<{ sent: boolean; reason?: string; attempts: number; durationMs: number; providerMessageId?: string }> {
-  const subject = `${input.recipientName} reacted ${input.emoji}`;
+  const subject = `${input.recipientName} reacted ${input.emoji} to your TinyKind`;
   const text = [
     `Hi ${input.senderName},`,
     "",
     `${input.recipientName} reacted ${input.emoji} to your TinyKind.`,
-    `View it: ${input.messageUrl}`,
+    `See the note: ${input.messageUrl}`,
     "",
     "— tinykind",
   ].join("\n");
@@ -24,7 +24,7 @@ export async function sendReactionNotification(
   const html = [
     `<p>Hi ${escapeHtml(input.senderName)},</p>`,
     `<p><strong>${escapeHtml(input.recipientName)}</strong> reacted ${escapeHtml(input.emoji)} to your TinyKind.</p>`,
-    `<p><a href="${escapeHtml(input.messageUrl)}">View TinyKind</a></p>`,
+    `<p><a href="${escapeHtml(input.messageUrl)}">See the note</a></p>`,
     "<p>— tinykind</p>",
   ].join("");
 

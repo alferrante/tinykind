@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import AccountMenu from "@/components/AccountMenu";
 import DashboardReminderForm from "@/components/DashboardReminderForm";
 import { getAuthenticatedSenderEmail } from "@/lib/senderAuth";
-import { getSenderProfile, listMessagesBySenderEmail } from "@/lib/store";
+import { getSenderProfile, getSenderStreakSummary, listMessagesBySenderEmail, listSenderActivityByEmail } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
@@ -20,15 +20,28 @@ function formatTimestamp(iso: string): string {
   }
 }
 
+function activityLabel(item: Awaited<ReturnType<typeof listSenderActivityByEmail>>[number]): string {
+  if (item.type === "opened") {
+    return `${item.recipientName} opened your TinyKind`;
+  }
+  if (item.type === "reaction") {
+    return `${item.recipientName} reacted ${item.emoji ?? ""}`.trim();
+  }
+  return `You sent a TinyKind to ${item.recipientName}`;
+}
+
 export default async function DashboardPage() {
   const senderEmail = await getAuthenticatedSenderEmail();
   if (!senderEmail) {
     redirect("/login?next=%2Fdashboard");
   }
 
-  const [profile, messages] = await Promise.all([
-    getSenderProfile(senderEmail),
+  const profile = await getSenderProfile(senderEmail);
+  const senderTimezone = profile?.reminder.timezone ?? "America/Los_Angeles";
+  const [messages, streakSummary, activity] = await Promise.all([
     listMessagesBySenderEmail(senderEmail, 200),
+    getSenderStreakSummary(senderEmail, senderTimezone),
+    listSenderActivityByEmail(senderEmail, 10),
   ]);
 
   return (
@@ -49,6 +62,19 @@ export default async function DashboardPage() {
         </header>
 
         <div className="grid gap-4">
+          <section className="panel p-5 md:p-7">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="rounded-full border border-[#E8E6E3] bg-[#FFFFFF] px-4 py-2 text-sm text-[#2E2E2E]">
+                {streakSummary.sentThisWeek ? "You sent a TinyKind this week ✓" : "No TinyKind sent yet this week"}
+              </div>
+              {streakSummary.currentStreak > 0 ? (
+                <div className="rounded-full border border-[#F2D9A6] bg-[#FFF8EA] px-4 py-2 text-sm font-medium text-[#8B5D1A]">
+                  🔥 {streakSummary.currentStreak}-week kindness streak
+                </div>
+              ) : null}
+            </div>
+          </section>
+
           <DashboardReminderForm
             initial={{
               enabled: profile?.reminder.enabled ?? false,
@@ -58,6 +84,33 @@ export default async function DashboardPage() {
               timezone: profile?.reminder.timezone ?? "America/Los_Angeles",
             }}
           />
+
+          <section className="panel p-5 md:p-7">
+            <h2 className="text-2xl font-medium leading-tight">Recent activity</h2>
+            <p className="mt-2 text-sm text-[#6B6B6B]">Open and reaction updates land here after your notification emails go out.</p>
+
+            {activity.length === 0 ? (
+              <p className="mt-4 text-sm text-[#6B6B6B]">No activity yet. Your next open or reaction will show up here.</p>
+            ) : (
+              <ul className="mt-4 grid gap-3">
+                {activity.map((item) => (
+                  <li key={item.id} className="rounded-xl border border-[#E8E6E3] bg-[#FFFFFF] p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                      <strong>{activityLabel(item)}</strong>
+                      <span className="text-xs text-[#6B6B6B]">{formatTimestamp(item.createdAt)}</span>
+                    </div>
+                    {item.slug ? (
+                      <div className="mt-3">
+                        <Link className="mono text-xs text-[#6B6B6B] underline" href={`/t/${item.slug}`} target="_blank">
+                          /t/{item.slug}
+                        </Link>
+                      </div>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
           <section className="panel p-5 md:p-7">
             <h2 className="text-2xl font-medium leading-tight">Sent history</h2>

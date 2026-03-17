@@ -25,6 +25,7 @@ interface CreateTinyKindCardProps {
   senderDefaultName?: string;
   senderEmail: string | null;
   googleEnabled: boolean;
+  promptSuggestions: readonly string[];
 }
 
 interface DraftSnapshot {
@@ -38,11 +39,6 @@ interface DraftSnapshot {
 }
 
 const DRAFT_STORAGE_KEY = "tinykind-compose-draft-v4";
-const SUGGESTIONS = [
-  "A teammate who helped this week",
-  "Someone who showed up for you",
-  "A friend who made you laugh",
-] as const;
 
 function loadDraft(): DraftSnapshot | null {
   if (typeof window === "undefined") {
@@ -98,6 +94,7 @@ export default function CreateTinyKindCard({
   senderDefaultName = "",
   senderEmail,
   googleEnabled,
+  promptSuggestions,
 }: CreateTinyKindCardProps) {
   const [step, setStep] = useState<ComposerStep>("compose");
   const [senderName, setSenderName] = useState(senderDefaultName);
@@ -316,7 +313,7 @@ export default function CreateTinyKindCard({
               </div>
             </div>
 
-            <SuggestionRow onSelect={applySuggestion} suggestions={SUGGESTIONS} />
+            <SuggestionRow onSelect={applySuggestion} suggestions={promptSuggestions} />
           </>
         ) : (
           <section className="panel p-6 sm:p-7">
@@ -333,7 +330,10 @@ export default function CreateTinyKindCard({
 
             {senderEmail ? (
               <div className="rounded-xl border border-[#E8E6E3] bg-[#FFFFFF] px-4 py-3 text-sm text-[#6B6B6B]">
-                From <span className="font-medium text-[#2E2E2E]">{senderDefaultName || senderName}</span> ({senderEmail})
+                <div>
+                  From <span className="font-medium text-[#2E2E2E]">{senderDefaultName || senderName}</span> ({senderEmail})
+                </div>
+                <div className="mt-1 text-xs text-[#6B6B6B]">We&apos;ll email you when this note is opened or gets a reaction.</div>
               </div>
             ) : (
               <div className="rounded-xl border border-[#E8E6E3] bg-[#FFFFFF] p-4 text-sm text-[#6B6B6B]">
@@ -364,7 +364,7 @@ export default function CreateTinyKindCard({
                     />
                   </label>
                   <label className="grid gap-1 text-sm font-medium text-[#2E2E2E]">
-                    Your email (reaction notifications)
+                    Your email (open + reaction notifications)
                     <input
                       className="field mono"
                       onChange={(event) => setSenderNotifyEmail(event.target.value)}
@@ -372,6 +372,7 @@ export default function CreateTinyKindCard({
                       type="email"
                       value={senderNotifyEmail}
                     />
+                    <span className="text-xs font-normal text-[#6B6B6B]">We&apos;ll let you know when your TinyKind is opened or gets a reaction.</span>
                   </label>
                 </>
               ) : null}
