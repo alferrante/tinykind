@@ -137,8 +137,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         ? message.recipientContact
         : null;
     const emailDraft = buildShareEmail(message.senderName, messageUrl);
-    const gmailComposeUrl =
-      deliveryMode === "email" ? buildGmailComposeUrl(recipientEmail, emailDraft.subject, emailDraft.body) : null;
+    const gmailComposeUrl = buildGmailComposeUrl(recipientEmail, emailDraft.subject, emailDraft.body);
 
     return NextResponse.json(
       {
