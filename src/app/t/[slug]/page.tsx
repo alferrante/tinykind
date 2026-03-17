@@ -51,6 +51,7 @@ export default async function RecipientPage({
       recipientName={payload.message.recipientName}
       body={payload.message.body}
       voiceUrl={payload.message.voiceUrl}
+      unwrapStyle={payload.message.unwrapStyle}
       initialReaction={payload.latestReaction?.emoji ?? null}
       autoOpen={autoOpen}
     />

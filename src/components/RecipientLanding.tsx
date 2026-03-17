@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { ALLOWED_REACTIONS, type AllowedReactionEmoji } from "@/lib/types";
+import { type CSSProperties, useEffect, useMemo, useState } from "react";
+import { ALLOWED_REACTIONS, type AllowedReactionEmoji, type UnwrapStyle } from "@/lib/types";
 
 interface RecipientLandingProps {
   slug: string;
@@ -11,6 +11,7 @@ interface RecipientLandingProps {
   recipientName: string;
   body: string;
   voiceUrl: string | null;
+  unwrapStyle: UnwrapStyle;
   initialReaction: string | null;
   autoOpen: boolean;
 }
@@ -49,6 +50,7 @@ export default function RecipientLanding({
   recipientName,
   body,
   voiceUrl,
+  unwrapStyle,
   initialReaction,
   autoOpen,
 }: RecipientLandingProps) {
@@ -62,6 +64,9 @@ export default function RecipientLanding({
   const [reporterEmail, setReporterEmail] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportNotice, setReportNotice] = useState("");
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const [tiltX, setTiltX] = useState(0);
+  const [tiltY, setTiltY] = useState(0);
 
   useEffect(() => {
     if (autoOpen) {
@@ -95,8 +100,54 @@ export default function RecipientLanding({
     };
   }, [slug]);
 
-  function openNote(): void {
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = (): void => setReduceMotion(mediaQuery.matches);
+    update();
+    mediaQuery.addEventListener("change", update);
+    return () => mediaQuery.removeEventListener("change", update);
+  }, []);
+
+  const stageTheme = useMemo(() => {
+    if (unwrapStyle === "B") {
+      return "bloom";
+    }
+    if (unwrapStyle === "C") {
+      return "quiet";
+    }
+    return "sunrise";
+  }, [unwrapStyle]);
+
+  const envelopeStyle = useMemo(
+    () =>
+      ({
+        "--tk-tilt-x": `${tiltX}deg`,
+        "--tk-tilt-y": `${tiltY}deg`,
+      }) as CSSProperties,
+    [tiltX, tiltY],
+  );
+
+  function openEnvelope(): void {
     setOpened(true);
+  }
+
+  function onStageMouseMove(event: React.MouseEvent<HTMLElement>): void {
+    if (reduceMotion) {
+      return;
+    }
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / rect.width - 0.5;
+    const y = (event.clientY - rect.top) / rect.height - 0.5;
+    setTiltX(y * -2.4);
+    setTiltY(x * 2.8);
+  }
+
+  function onStageMouseLeave(): void {
+    setTiltX(0);
+    setTiltY(0);
   }
 
   async function onShare(): Promise<void> {
@@ -192,138 +243,122 @@ export default function RecipientLanding({
   }
 
   return (
-    <main className="min-h-screen bg-[#F7F6F4] text-[#2E2E2E]">
-      <header className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-6 pt-6 sm:pt-8">
-        <Image
-          alt="tinykind"
-          className="h-auto w-[136px] sm:w-[172px]"
-          height={109}
-          priority
-          src="/branding-tinykind-dark.png"
-          unoptimized
-          width={427}
-        />
-        <div className="flex items-center gap-3">
-          <Link
-            className="rounded-full border border-[#E8E6E3] bg-white px-4 py-2 text-sm text-[#6B6B6B] transition duration-150 ease-out hover:bg-[#FAFAF9] hover:text-[#2E2E2E]"
-            href="/"
-          >
+    <main className="tk-page" data-theme="midnight">
+      <header className="tk-topbar">
+        <div className="tk-brand">
+          <Image
+            alt="tinykind"
+            className="tk-brandImage"
+            height={42}
+            priority
+            src="/branding-tinykind-light.png"
+            width={182}
+          />
+        </div>
+        <div className="tk-actions">
+          <Link className="tk-ghost" href="/">
             Make your own
           </Link>
-          <button
-            aria-label="Share"
-            className="rounded-full border border-[#E8E6E3] bg-white px-4 py-2 text-sm text-[#6B6B6B] transition duration-150 ease-out hover:bg-[#FAFAF9] hover:text-[#2E2E2E]"
-            onClick={onShare}
-            type="button"
-          >
+          <button aria-label="Share" className="tk-ghost" onClick={onShare} type="button">
             Share
           </button>
         </div>
       </header>
 
-      <section className="mx-auto w-full max-w-[720px] px-6 pb-20 pt-14 sm:pt-20">
-        <div className="text-center">
-          <p className="text-sm text-[#6B6B6B]">tinykind note</p>
-          <h1 className="mt-3 text-[36px] font-medium leading-[1.2] tracking-[-0.02em] sm:text-[44px]">
-            Hi {recipientName},
+      <section className="tk-shell">
+        <section className="tk-copy">
+          <div className="tk-kicker">TINYKIND NOTE</div>
+          <h1 className="tk-h1">
+            A tiny thank-you from <span className="tk-accent">{senderName}</span>.
           </h1>
-          <p className="mt-4 text-[22px] leading-[1.3] text-[#6B6B6B]">
-            {opened ? `A note from ${senderName}.` : `${senderName} sent something kind your way.`}
-          </p>
-        </div>
+          <p className="tk-sub">Open the envelope to read it.</p>
 
-        <section className="panel mt-10 overflow-hidden transition duration-300 ease-out">
-          {!opened ? (
-            <div className="flex min-h-[220px] flex-col items-center justify-center gap-5 px-6 py-8 text-center">
-              <p className="max-w-[34ch] text-base leading-relaxed text-[#6B6B6B]">
-                Open whenever you have a quiet moment.
-              </p>
-              <button
-                className="rounded-full bg-[#B7C4C7] px-6 py-2.5 text-base font-medium text-white transition duration-150 ease-out hover:bg-[#A6B4B8]"
-                onClick={openNote}
-                type="button"
-              >
-                Open note
-              </button>
-            </div>
-          ) : (
-            <article className="space-y-5 px-6 py-7 sm:px-8">
-              <p className="text-sm uppercase tracking-[0.12em] text-[#6B6B6B]">From {senderName}</p>
-              <p className="whitespace-pre-wrap text-[18px] leading-[1.6] text-[#2E2E2E]">{body}</p>
+          <div className="tk-meta">
+            <div className="tk-chip">To {recipientName}</div>
+            {opened ? <div className="tk-chip">Made with tinykind</div> : null}
+          </div>
+        </section>
+
+        <section
+          aria-label="Envelope and note"
+          className="tk-stage"
+          data-open={opened ? "true" : "false"}
+          data-style={stageTheme}
+          onMouseLeave={onStageMouseLeave}
+          onMouseMove={onStageMouseMove}
+        >
+          <div aria-hidden="true" className="tk-spotlight" />
+
+          <div className="tk-envelopeWrap" onClick={openEnvelope} style={envelopeStyle}>
+            <article className="tk-noteCard" data-open={opened ? "true" : "false"}>
+              <p className="tk-noteLabel">FROM {senderName}</p>
+              <p className="tk-noteText">{body}</p>
               {voiceUrl ? (
-                <audio className="w-full" controls preload="none" src={voiceUrl}>
+                <audio className="tk-noteVoice" controls preload="none" src={voiceUrl}>
                   Your browser does not support audio playback.
                 </audio>
               ) : null}
             </article>
-          )}
 
-          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[#EFEDEB] px-6 py-4 sm:px-8">
-            <div className="text-sm text-[#6B6B6B]">
-              {reactionNotice || reportNotice || (opened ? "How did this make you feel?" : "Open the note to react")}
-            </div>
-            <div className="flex gap-2">
-              <Link
-                className="rounded-full border border-[#E8E6E3] bg-white px-4 py-2 text-sm text-[#6B6B6B] transition duration-150 ease-out hover:bg-[#F1F1EF] hover:text-[#2E2E2E]"
-                href="/"
-              >
-                Send one back
-              </Link>
-              <button
-                className="rounded-full border border-[#E8E6E3] bg-white px-4 py-2 text-sm text-[#6B6B6B] transition duration-150 ease-out hover:bg-[#F1F1EF] hover:text-[#2E2E2E]"
-                onClick={() => setReportOpen(true)}
-                type="button"
-              >
-                Report
-              </button>
-            </div>
-          </div>
-        </section>
+            <div className="tk-envelopeBack" />
+            <div className="tk-envelopeFront" />
+            <div className="tk-envelopeFlap" data-open={opened ? "true" : "false"} />
 
-        {opened ? (
-          <div className="mt-8 flex flex-wrap justify-center gap-2">
-            {ALLOWED_REACTIONS.map((emoji) => {
-              const isActive = selectedReaction === emoji;
-              return (
-                <button
-                  className={[
-                    "rounded-full border px-3 py-1.5 text-xl transition duration-150 ease-out",
-                    isActive
-                      ? "border-[#B7C4C7] bg-[#E6ECEE]"
-                      : "border-[#E8E6E3] bg-white hover:bg-[#F1F1EF]",
-                  ].join(" ")}
-                  disabled={sending}
-                  key={emoji}
-                  onClick={() => sendReaction(emoji)}
-                  type="button"
-                >
-                  {emoji}
-                </button>
-              );
-            })}
+            {!opened ? (
+              <div className="tk-seal">
+                <Image alt="" fill priority sizes="90px" src="/art/wax-seal.png" />
+              </div>
+            ) : null}
           </div>
-        ) : (
-          <div className="mt-8 text-center text-sm text-[#6B6B6B]">
-            <button
-              className="rounded-full bg-transparent px-3 py-1.5 transition duration-150 ease-out hover:bg-[#F1F1EF] hover:text-[#2E2E2E]"
-              onClick={openNote}
-              type="button"
-            >
+
+          {!opened ? (
+            <button className="tk-openPill" onClick={openEnvelope} type="button">
               Tap to open
             </button>
-          </div>
-        )}
+          ) : null}
+        </section>
       </section>
 
-      {reportOpen ? (
-        <div className="fixed inset-0 z-40 grid place-items-center bg-[#2E2E2E1A] px-4">
-          <section className="w-full max-w-md rounded-2xl border border-[#E8E6E3] bg-[#FFFFFF] p-5 text-[#2E2E2E] shadow-[0_10px_26px_rgba(0,0,0,0.06)]">
-            <h2 className="text-lg font-medium">Report TinyKind</h2>
-            <p className="mt-1 text-sm text-[#6B6B6B]">Help us prevent abuse. This sends a private report to TinyKind admin.</p>
+      <div className="tk-dock" data-visible={opened ? "true" : "false"}>
+        <div className="tk-dockLabel">React</div>
+        {ALLOWED_REACTIONS.map((emoji) => {
+          const isActive = selectedReaction === emoji;
+          return (
+            <button
+              className={`tk-emojiBtn ${isActive ? "tk-emojiBtnActive" : ""}`}
+              disabled={sending}
+              key={emoji}
+              onClick={() => sendReaction(emoji)}
+              type="button"
+            >
+              {emoji}
+            </button>
+          );
+        })}
+        <div className="tk-dockDivider" />
+        <Link className="tk-dockCTA" href="/">
+          Send one back
+        </Link>
+        <button className="tk-dockCTA tk-dockCTASecondary" onClick={() => setReportOpen(true)} type="button">
+          Report
+        </button>
+      </div>
 
-            <label className="mt-3 grid gap-1 text-sm text-[#2E2E2E]">
+      <div className="tk-dockNotice" data-visible={reactionNotice || reportNotice ? "true" : "false"}>
+        {reactionNotice || reportNotice}
+      </div>
+
+      {reportOpen ? (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-[#05060acc] px-4">
+          <section className="w-full max-w-md rounded-2xl border border-[rgba(255,255,255,0.16)] bg-[rgba(10,14,20,0.96)] p-5 text-white shadow-[0_24px_50px_rgba(0,0,0,0.4)]">
+            <h2 className="text-lg font-medium">Report TinyKind</h2>
+            <p className="mt-1 text-sm text-[rgba(255,255,255,0.72)]">
+              Help us prevent abuse. This sends a private report to TinyKind admin.
+            </p>
+
+            <label className="mt-3 grid gap-1 text-sm text-white">
               Reason
-              <select className="field" onChange={(event) => setReportReason(event.target.value)} value={reportReason}>
+              <select className="field bg-[rgba(255,255,255,0.96)] text-[#2E2E2E]" onChange={(event) => setReportReason(event.target.value)} value={reportReason}>
                 {REPORT_REASONS.map((item) => (
                   <option key={item.value} value={item.value}>
                     {item.label}
@@ -332,10 +367,10 @@ export default function RecipientLanding({
               </select>
             </label>
 
-            <label className="mt-3 grid gap-1 text-sm text-[#2E2E2E]">
+            <label className="mt-3 grid gap-1 text-sm text-white">
               Details (optional)
               <textarea
-                className="field min-h-24 resize-y"
+                className="field min-h-24 resize-y bg-[rgba(255,255,255,0.96)] text-[#2E2E2E]"
                 maxLength={300}
                 onChange={(event) => setReportDetails(event.target.value)}
                 placeholder="Add context"
@@ -343,10 +378,10 @@ export default function RecipientLanding({
               />
             </label>
 
-            <label className="mt-3 grid gap-1 text-sm text-[#2E2E2E]">
+            <label className="mt-3 grid gap-1 text-sm text-white">
               Your email (optional)
               <input
-                className="field mono"
+                className="field mono bg-[rgba(255,255,255,0.96)] text-[#2E2E2E]"
                 onChange={(event) => setReporterEmail(event.target.value)}
                 placeholder="you@email.com"
                 type="email"
