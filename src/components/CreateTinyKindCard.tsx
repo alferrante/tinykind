@@ -131,7 +131,7 @@ function CopyIcon() {
 function ShareIcon({ kind }: { kind: "copy" | "message" | "whatsapp" | "email" | "slack" }) {
   const common = {
     "aria-hidden": true,
-    className: "h-7 w-7",
+    className: "h-8 w-8",
     fill: "none",
     stroke: "currentColor",
     strokeLinecap: "round" as const,
@@ -146,17 +146,18 @@ function ShareIcon({ kind }: { kind: "copy" | "message" | "whatsapp" | "email" |
   if (kind === "message") {
     return (
       <svg {...common}>
-        <path d="M6.6 18.2 4.5 20l.7-3A6.9 6.9 0 1 1 18.5 14" />
-        <path d="M8.8 10.5h6.4" />
-        <path d="M8.8 13.4h4.3" />
+        <path d="M6.5 18.5 4.5 20l.6-3.3A7.8 7.8 0 1 1 20 11.8c0 4.3-3.5 7.7-7.8 7.7H6.5Z" />
+        <path d="M8.7 10.9h.01" />
+        <path d="M12 10.9h.01" />
+        <path d="M15.3 10.9h.01" />
       </svg>
     );
   }
   if (kind === "whatsapp") {
     return (
       <svg {...common}>
-        <path d="M12 20a7.9 7.9 0 0 1-4-.9L4.5 20l1-3.4a7.9 7.9 0 1 1 6.5 3.4Z" />
-        <path d="M9.7 8.9c.2-.4.4-.4.6-.4h.5c.2 0 .5 0 .7.5.2.5.7 1.8.8 2 .1.2.1.4 0 .6-.1.2-.2.3-.4.5l-.4.4c-.1.1-.3.2-.1.5.2.4.9 1.5 2 2.1 1.4.8 2.5 1 2.9 1.1.3.1.5 0 .7-.2l.8-.9c.2-.2.4-.3.7-.2.3.1 1.8.8 2.1 1 .3.2.4.3.4.5 0 .2-.1 1-.6 1.6-.5.6-1.1.8-1.8.9-.6.1-1.5 0-3-.6-1.5-.6-2.8-1.5-4-2.7-1.1-1.1-2-2.4-2.6-3.8-.6-1.4-.6-2.4-.5-3 0-.6.3-1.1.6-1.5Z" />
+        <path d="M12.1 20a7.8 7.8 0 0 1-4-.9L4.7 20l1-3.3a7.8 7.8 0 1 1 6.4 3.3Z" />
+        <path d="M10 8.8c.2-.4.5-.5.8-.5h.4c.2 0 .5.1.6.4l.8 2c.1.3.1.5-.1.7l-.5.5c-.2.2-.2.3-.1.6.4.7 1 1.3 1.7 1.7.3.2.4.1.6-.1l.5-.5c.2-.2.4-.2.7-.1l2 .8c.3.1.4.4.4.6v.4c0 .3-.1.6-.5.8-.5.3-1.1.4-1.8.3-1-.1-2-.5-3.1-1.3a10.2 10.2 0 0 1-2.6-2.6c-.8-1.1-1.2-2.1-1.3-3.1-.1-.7 0-1.3.3-1.8Z" />
       </svg>
     );
   }
@@ -169,11 +170,9 @@ function ShareIcon({ kind }: { kind: "copy" | "message" | "whatsapp" | "email" |
     );
   }
   return (
-    <svg {...common}>
-      <path d="M8.5 16.5 6 18.5l1-3A6 6 0 1 1 18.5 9" />
-      <path d="M10 8.9h4" />
-      <path d="M9 12.1h6" />
-      <path d="M8.8 15.3h3.6" />
+      <svg {...common}>
+      <path d="M8.5 4.8a1.3 1.3 0 0 0-1.3 1.3v2.4H4.8a1.3 1.3 0 0 0-1.3 1.3v1.1a1.3 1.3 0 0 0 1.3 1.3h2.4v2.4a1.3 1.3 0 0 0 1.3 1.3h1.1a1.3 1.3 0 0 0 1.3-1.3v-2.4h2.4a1.3 1.3 0 0 0 1.3-1.3V9.8a1.3 1.3 0 0 0-1.3-1.3h-2.4V6.1a1.3 1.3 0 0 0-1.3-1.3H8.5Z" />
+      <path d="M15.7 14.2a1.3 1.3 0 0 0-1.3 1.3V18h-2.5a1.3 1.3 0 0 0-1.3 1.3v.7a1.3 1.3 0 0 0 1.3 1.3h2.5v2.5a1.3 1.3 0 0 0 1.3 1.3h.7a1.3 1.3 0 0 0 1.3-1.3v-2.5h2.5a1.3 1.3 0 0 0 1.3-1.3v-.7a1.3 1.3 0 0 0-1.3-1.3h-2.5v-2.5a1.3 1.3 0 0 0-1.3-1.3h-.7Z" transform="scale(.72) translate(8 -1)" />
     </svg>
   );
 }
@@ -191,25 +190,42 @@ function SealedEnvelope() {
 
 function ConfettiField() {
   const pieces = [
-    ["left-[5%] top-[73%]", "#D9ECDC", "6s", "0.2s"],
-    ["left-[16%] top-[84%]", "#F5D5B2", "7.1s", "1.4s"],
-    ["left-[28%] top-[63%]", "#F2B6A0", "5.8s", "0.7s"],
-    ["left-[34%] top-[77%]", "#CFC7FF", "6.5s", "2.2s"],
-    ["left-[41%] top-[71%]", "#F6D89E", "7.4s", "0.9s"],
-    ["left-[49%] top-[82%]", "#BEE5E7", "5.9s", "1.8s"],
-    ["left-[58%] top-[67%]", "#F9CDBA", "6.8s", "0.4s"],
-    ["left-[69%] top-[75%]", "#DAD1F7", "7.5s", "1.1s"],
-    ["left-[84%] top-[88%]", "#D9ECDC", "6.2s", "0.6s"],
-    ["left-[92%] top-[66%]", "#F5D5B2", "7.2s", "1.6s"],
+    ["6%", "16%", "#D9ECDC", "10px", "4.3s", "0s", "-12deg"],
+    ["13%", "9%", "#F5D5B2", "12px", "4.8s", "0.15s", "18deg"],
+    ["21%", "18%", "#F2B6A0", "9px", "4.5s", "0.05s", "-20deg"],
+    ["28%", "12%", "#CFC7FF", "13px", "4.9s", "0.22s", "14deg"],
+    ["35%", "8%", "#F6D89E", "10px", "4.4s", "0.1s", "-6deg"],
+    ["42%", "20%", "#BEE5E7", "11px", "4.7s", "0.28s", "22deg"],
+    ["49%", "10%", "#F9CDBA", "12px", "4.6s", "0.12s", "-18deg"],
+    ["56%", "18%", "#DAD1F7", "9px", "4.85s", "0.34s", "11deg"],
+    ["63%", "11%", "#D9ECDC", "13px", "4.55s", "0.18s", "-24deg"],
+    ["70%", "7%", "#F5D5B2", "10px", "4.75s", "0.26s", "17deg"],
+    ["77%", "17%", "#F2B6A0", "11px", "4.35s", "0.08s", "-10deg"],
+    ["84%", "10%", "#CFC7FF", "9px", "4.8s", "0.3s", "24deg"],
+    ["91%", "16%", "#F6D89E", "12px", "4.65s", "0.2s", "-16deg"],
+    ["10%", "28%", "#BEE5E7", "9px", "4.6s", "0.4s", "12deg"],
+    ["24%", "30%", "#F9CDBA", "11px", "4.9s", "0.5s", "-22deg"],
+    ["47%", "26%", "#DAD1F7", "10px", "4.5s", "0.38s", "8deg"],
+    ["67%", "29%", "#D9ECDC", "12px", "4.7s", "0.44s", "-15deg"],
+    ["88%", "27%", "#F5D5B2", "10px", "4.55s", "0.36s", "21deg"],
   ] as const;
 
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-      {pieces.map(([position, color, duration, delay], index) => (
+      {pieces.map(([left, top, color, size, duration, delay, rotate], index) => (
         <span
-          className={`tk-confettiPiece ${position}`}
-          key={`${position}-${index}`}
-          style={{ backgroundColor: color, animationDuration: duration, animationDelay: delay }}
+          className="tk-confettiPiece"
+          key={`${left}-${top}-${index}`}
+          style={{
+            left,
+            top,
+            backgroundColor: color,
+            width: size,
+            height: size,
+            animationDuration: duration,
+            animationDelay: delay,
+            transform: `rotate(${rotate})`,
+          }}
         />
       ))}
     </div>
