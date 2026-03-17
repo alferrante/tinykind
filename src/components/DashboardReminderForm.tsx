@@ -36,8 +36,11 @@ function formatSummary(state: ReminderState): string {
     return "Off";
   }
   const day = WEEKDAYS.find((item) => item.value === state.weekday)?.label ?? "Sunday";
-  const time = `${String(state.hour).padStart(2, "0")}:${String(state.minute).padStart(2, "0")}`;
-  return `${day}, ${time} (${state.timezone})`;
+  const time = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(Date.UTC(2024, 0, 1, state.hour, state.minute)));
+  return `Your reminder is set 🔔 — We'll nudge you ${day} at ${time}`;
 }
 
 export default function DashboardReminderForm({ initial }: { initial: ReminderState }) {
@@ -90,7 +93,7 @@ export default function DashboardReminderForm({ initial }: { initial: ReminderSt
           </div>
         </div>
         <span className="mt-1 rounded-full border border-[#E8E6E3] bg-[#ffffff] px-3 py-1 text-xs font-semibold text-[#2E2E2E]">
-          {expanded ? "Hide" : "Edit"}
+          {expanded ? "Hide" : "Adjust"}
         </span>
       </button>
 

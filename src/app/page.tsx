@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import AccountMenu from "@/components/AccountMenu";
@@ -7,6 +8,10 @@ import { getAuthenticatedSenderEmail, isGoogleAuthConfigured } from "@/lib/sende
 import { countSentBySenderEmail, getSenderProfile, getSenderStreakSummary } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Send a TinyKind 💛",
+};
 
 export default async function HomePage() {
   const senderEmail = await getAuthenticatedSenderEmail();

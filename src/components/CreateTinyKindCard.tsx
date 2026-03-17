@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import SuggestionRow from "@/components/SuggestionRow";
 import type { DeliveryMode } from "@/lib/types";
 
@@ -96,6 +96,11 @@ export default function CreateTinyKindCard({
   googleEnabled,
   promptSuggestions,
 }: CreateTinyKindCardProps) {
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const composeTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const detailsTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const suggestionIntervalRef = useRef<number | null>(null);
+  const suggestionTimeoutRef = useRef<number | null>(null);
   const [step, setStep] = useState<ComposerStep>("compose");
   const [senderName, setSenderName] = useState(senderDefaultName);
   const [senderNotifyEmail, setSenderNotifyEmail] = useState("");
@@ -109,6 +114,7 @@ export default function CreateTinyKindCard({
   const [created, setCreated] = useState<CreateResponse | null>(null);
   const [copied, setCopied] = useState<string>("");
   const [draftLoaded, setDraftLoaded] = useState(false);
+  const [suggestionPulse, setSuggestionPulse] = useState(false);
 
   useEffect(() => {
     if (draftLoaded) {
@@ -150,10 +156,23 @@ export default function CreateTinyKindCard({
     });
   }, [draftLoaded, step, senderName, senderNotifyEmail, recipientName, recipientEmail, body, sendByEmail]);
 
+  useEffect(() => {
+    return () => {
+      if (suggestionIntervalRef.current) {
+        window.clearInterval(suggestionIntervalRef.current);
+      }
+      if (suggestionTimeoutRef.current) {
+        window.clearTimeout(suggestionTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const charCount = body.length;
   const bodyTooLong = charCount > 500;
   const deliveryMode: DeliveryMode = sendByEmail ? "email" : "link";
   const isMessageEmpty = body.trim().length === 0;
+  const counterClassName =
+    charCount >= 480 ? "text-[#B64B39]" : charCount >= 400 ? "text-[#A66B17]" : "text-[#9A9A9A]";
 
   const loginQuery = useMemo(() => {
     const params = new URLSearchParams({ next: "/" });
@@ -177,13 +196,41 @@ export default function CreateTinyKindCard({
     }
   }
 
+  function startSuggestionPulse(): void {
+    setSuggestionPulse(true);
+    if (suggestionTimeoutRef.current) {
+      window.clearTimeout(suggestionTimeoutRef.current);
+    }
+    suggestionTimeoutRef.current = window.setTimeout(() => {
+      setSuggestionPulse(false);
+    }, 520);
+  }
+
   function applySuggestion(suggestion: string): void {
+    if (suggestionIntervalRef.current) {
+      window.clearInterval(suggestionIntervalRef.current);
+      suggestionIntervalRef.current = null;
+    }
+    setError(null);
+    composeTextareaRef.current?.focus();
+    startSuggestionPulse();
     setBody((current) => {
-      if (current.trim().length === 0) {
-        return `${suggestion}: `.slice(0, 500);
+      const base = current.trim().length === 0 ? "" : current.trimEnd();
+      const full = current.trim().length === 0 ? `${suggestion}: `.slice(0, 500) : `${base} ${suggestion}.`.slice(0, 500);
+      const addition = full.slice(base.length);
+      if (!addition) {
+        return current;
       }
-      const next = `${current.trimEnd()} ${suggestion}.`;
-      return next.slice(0, 500);
+      let index = 0;
+      suggestionIntervalRef.current = window.setInterval(() => {
+        index = Math.min(index + 2, addition.length);
+        setBody(base + addition.slice(0, index));
+        if (index >= addition.length && suggestionIntervalRef.current) {
+          window.clearInterval(suggestionIntervalRef.current);
+          suggestionIntervalRef.current = null;
+        }
+      }, 18);
+      return base;
     });
   }
 
@@ -198,6 +245,20 @@ export default function CreateTinyKindCard({
     }
     setError(null);
     setStep("details");
+  }
+
+  function handleComposeShortcut(event: React.KeyboardEvent<HTMLTextAreaElement>): void {
+    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+      event.preventDefault();
+      goToDetails();
+    }
+  }
+
+  function handleDetailsShortcut(event: React.KeyboardEvent<HTMLTextAreaElement>): void {
+    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+      event.preventDefault();
+      formRef.current?.requestSubmit();
+    }
   }
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
@@ -233,6 +294,10 @@ export default function CreateTinyKindCard({
       setLoading(true);
       setError(null);
       setCreated(null);
+      if (suggestionIntervalRef.current) {
+        window.clearInterval(suggestionIntervalRef.current);
+        suggestionIntervalRef.current = null;
+      }
 
       const response = await fetch("/api/send", {
         method: "POST",
@@ -271,7 +336,7 @@ export default function CreateTinyKindCard({
 
   return (
     <section>
-      <form className="grid gap-4" onSubmit={onSubmit}>
+      <form className="grid gap-4" onSubmit={onSubmit} ref={formRef}>
         <label aria-hidden="true" className="hidden">
           Website
           <input
@@ -284,17 +349,30 @@ export default function CreateTinyKindCard({
 
         {step === "compose" ? (
           <>
-            <div className="overflow-hidden rounded-[20px] border border-[#E8E6E3] bg-[#FAFAF9] transition duration-150 ease-out focus-within:border-[#B7C4C7] focus-within:shadow-[0_0_0_3px_rgba(183,196,199,0.22)]">
+            <div
+              className={[
+                "overflow-hidden rounded-[20px] border bg-[#FAFAF9] transition duration-200 ease-out focus-within:border-[#DFC09C] focus-within:shadow-[0_0_0_4px_rgba(223,192,156,0.22)]",
+                suggestionPulse ? "border-[#DFC09C] shadow-[0_0_0_4px_rgba(223,192,156,0.18)]" : "border-[#E8E6E3]",
+              ].join(" ")}
+            >
               <textarea
                 className="min-h-[156px] w-full resize-none bg-transparent px-6 py-6 text-[17px] leading-[1.6] placeholder:text-[#9A9A9A] focus:outline-none"
                 maxLength={500}
-                onChange={(event) => setBody(event.target.value)}
+                onChange={(event) => {
+                  if (suggestionIntervalRef.current) {
+                    window.clearInterval(suggestionIntervalRef.current);
+                    suggestionIntervalRef.current = null;
+                  }
+                  setBody(event.target.value);
+                }}
+                onKeyDown={handleComposeShortcut}
                 placeholder="I appreciate you because..."
+                ref={composeTextareaRef}
                 value={body}
               />
 
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#EFEDEB] px-6 py-4">
-                <span className="text-sm text-[#9A9A9A]">
+                <span className={`text-sm transition-colors duration-150 ${counterClassName}`}>
                   {charCount}/500 {bodyTooLong ? "(too long)" : ""}
                 </span>
                 <button
@@ -320,10 +398,11 @@ export default function CreateTinyKindCard({
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-[24px] font-medium leading-tight text-[#2E2E2E]">Share this TinyKind</h2>
               <button
-                className="rounded-full bg-transparent px-3 py-1.5 text-sm text-[#6B6B6B] transition duration-150 ease-out hover:bg-[#F1F1EF] hover:text-[#2E2E2E]"
+                className="inline-flex items-center gap-2 rounded-full border border-[#E8E6E3] bg-[#FFFFFF] px-4 py-2 text-sm font-medium text-[#4B4B4B] transition duration-150 ease-out hover:bg-[#F7F2EB] hover:text-[#2E2E2E]"
                 onClick={() => setStep("compose")}
                 type="button"
               >
+                <span aria-hidden>←</span>
                 Back to message
               </button>
             </div>
@@ -428,11 +507,13 @@ export default function CreateTinyKindCard({
                   className="field min-h-28 resize-y"
                   maxLength={500}
                   onChange={(event) => setBody(event.target.value)}
+                  onKeyDown={handleDetailsShortcut}
+                  ref={detailsTextareaRef}
                   value={body}
                 />
               </label>
 
-              <div className="text-sm text-[#6B6B6B]">
+              <div className={`text-sm transition-colors duration-150 ${counterClassName}`}>
                 {charCount}/500 {bodyTooLong ? "(too long)" : ""}
               </div>
 

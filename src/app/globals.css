@@ -63,8 +63,8 @@ body {
 
 .field:focus {
   outline: none;
-  border-color: var(--tk-accent);
-  box-shadow: 0 0 0 3px rgba(183, 196, 199, 0.2);
+  border-color: #dec2a5;
+  box-shadow: 0 0 0 3px rgba(222, 194, 165, 0.22);
 }
 
 .btn {
@@ -507,6 +507,18 @@ button.tk-dockCTA {
 
 .tk-dockCTASecondary {
   background: rgba(255, 255, 255, 0.05);
+}
+
+.tk-dockTextLink {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 13px;
+  padding: 0 2px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .tk-dockNotice {

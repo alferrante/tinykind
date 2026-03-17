@@ -20,6 +20,32 @@ function formatTimestamp(iso: string): string {
   }
 }
 
+function formatRelativeTimestamp(iso: string): string {
+  try {
+    const value = new Date(iso);
+    const diffMs = value.getTime() - Date.now();
+    const diffSeconds = Math.round(diffMs / 1000);
+    const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+    const units: Array<[Intl.RelativeTimeFormatUnit, number]> = [
+      ["year", 60 * 60 * 24 * 365],
+      ["month", 60 * 60 * 24 * 30],
+      ["week", 60 * 60 * 24 * 7],
+      ["day", 60 * 60 * 24],
+      ["hour", 60 * 60],
+      ["minute", 60],
+    ];
+
+    for (const [unit, seconds] of units) {
+      if (Math.abs(diffSeconds) >= seconds || unit === "minute") {
+        return rtf.format(Math.round(diffSeconds / seconds), unit);
+      }
+    }
+    return "just now";
+  } catch {
+    return iso;
+  }
+}
+
 function activityLabel(item: Awaited<ReturnType<typeof listSenderActivityByEmail>>[number]): string {
   if (item.type === "opened") {
     return `${item.recipientName} opened your TinyKind`;
@@ -97,7 +123,9 @@ export default async function DashboardPage() {
                   <li key={item.id} className="rounded-xl border border-[#E8E6E3] bg-[#FFFFFF] p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
                       <strong>{activityLabel(item)}</strong>
-                      <span className="text-xs text-[#6B6B6B]">{formatTimestamp(item.createdAt)}</span>
+                      <span className="text-xs text-[#6B6B6B]" title={formatTimestamp(item.createdAt)}>
+                        {formatRelativeTimestamp(item.createdAt)}
+                      </span>
                     </div>
                     {item.slug ? (
                       <div className="mt-3">
@@ -128,7 +156,9 @@ export default async function DashboardPage() {
                       <div>
                         <strong>{message.recipientName}</strong>
                       </div>
-                      <div className="text-xs text-[#6B6B6B]">{formatTimestamp(message.createdAt)}</div>
+                      <div className="text-xs text-[#6B6B6B]" title={formatTimestamp(message.createdAt)}>
+                        {formatRelativeTimestamp(message.createdAt)}
+                      </div>
                     </div>
                     <p className="mt-2 text-sm text-[#2E2E2E]">{message.body}</p>
                     <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[#6B6B6B]">

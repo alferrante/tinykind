@@ -341,7 +341,7 @@ export default function RecipientLanding({
           <span className="sm:hidden">Send kindness</span>
           <span className="hidden sm:inline">Send kindness to someone you love →</span>
         </Link>
-        <button className="tk-dockCTA tk-dockCTASecondary" onClick={() => setReportOpen(true)} type="button">
+        <button className="tk-dockTextLink" onClick={() => setReportOpen(true)} type="button">
           Report
         </button>
       </div>

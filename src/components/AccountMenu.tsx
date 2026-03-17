@@ -71,7 +71,8 @@ export default function AccountMenu({
       <button
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex h-11 items-center gap-2 rounded-full border border-[#E8E6E3] bg-[#F7F6F4] px-2.5 text-left text-[#2E2E2E] transition duration-150 ease-out hover:bg-[#FAFAF9]"
+        aria-label={`Open account menu for ${resolvedName}`}
+        className="flex h-11 items-center gap-2 rounded-full border border-[#E8E6E3] bg-[#F7F6F4] px-2.5 text-left text-[#2E2E2E] transition duration-150 ease-out hover:bg-[#FAFAF9] sm:pr-3"
         onClick={() => setOpen((value) => !value)}
         type="button"
       >
@@ -80,8 +81,8 @@ export default function AccountMenu({
             {initial}
           </span>
         </span>
-        <span className="max-w-[180px] truncate text-base font-medium">{resolvedName}</span>
-        <span className="text-xs text-[#6B6B6B]">▼</span>
+        <span className="hidden max-w-[180px] truncate text-base font-medium sm:block">{resolvedName}</span>
+        <span className="hidden text-xs text-[#6B6B6B] sm:block">▼</span>
       </button>
 
       {open ? (
