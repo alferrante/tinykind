@@ -111,8 +111,6 @@ export default function CreateTinyKindCard({
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<CreateResponse | null>(null);
   const [copied, setCopied] = useState<string>("");
-  const [gmailOpened, setGmailOpened] = useState(false);
-  const [sendMarked, setSendMarked] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
 
   useEffect(() => {
@@ -205,19 +203,6 @@ export default function CreateTinyKindCard({
     setStep("details");
   }
 
-  function resetComposer(): void {
-    setStep("compose");
-    setRecipientName("");
-    setRecipientEmail("");
-    setBody("");
-    setCreated(null);
-    setError(null);
-    setSendByEmail(false);
-    setGmailOpened(false);
-    setSendMarked(false);
-    clearDraft();
-  }
-
   async function onSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (bodyTooLong) {
@@ -251,8 +236,6 @@ export default function CreateTinyKindCard({
       setLoading(true);
       setError(null);
       setCreated(null);
-      setGmailOpened(false);
-      setSendMarked(false);
 
       const response = await fetch("/api/send", {
         method: "POST",
@@ -287,8 +270,6 @@ export default function CreateTinyKindCard({
       return;
     }
     window.open(created.gmailComposeUrl, "_blank", "noopener,noreferrer");
-    setGmailOpened(true);
-    setSendMarked(false);
   }
 
   return (
@@ -321,10 +302,10 @@ export default function CreateTinyKindCard({
                 </span>
                 <button
                   className={[
-                    "rounded-full px-6 py-2.5 text-base font-medium text-white transition duration-150 ease-out",
+                    "rounded-full border px-6 py-2.5 text-base font-semibold text-white shadow-[0_10px_24px_rgba(87,116,122,0.18)] transition duration-150 ease-out focus:outline-none focus-visible:ring-4 focus-visible:ring-[#C8D5D8]",
                     isMessageEmpty || bodyTooLong
-                      ? "cursor-not-allowed bg-[#B7C4C7]/55"
-                      : "bg-[#B7C4C7] hover:bg-[#A6B4B8] active:scale-[1.01]",
+                      ? "cursor-not-allowed border-transparent bg-[#C9D3D6] text-white/80 shadow-none"
+                      : "border-[#6E8E95] bg-[#6E8E95] hover:border-[#5C7A81] hover:bg-[#5C7A81] active:scale-[1.01]",
                   ].join(" ")}
                   disabled={isMessageEmpty || bodyTooLong}
                   onClick={goToDetails}
@@ -470,48 +451,33 @@ export default function CreateTinyKindCard({
       {created ? (
         <div className="panel mt-6 p-5 sm:p-6">
           <div className="text-lg font-medium text-[#2E2E2E]">Kindness ready to send</div>
-          <a className="mono mt-2 block text-sm text-[#6B6B6B] underline" href={created.messageUrl} target="_blank">
-            {created.messageUrl}
-          </a>
+          <div className="mt-2 flex items-center gap-2">
+            <a className="mono text-sm text-[#6B6B6B] underline decoration-[#D7D4CF] underline-offset-4" href={created.messageUrl} target="_blank">
+              {created.messageUrl}
+            </a>
+            <button
+              aria-label="Copy link"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[#E8E6E3] bg-[#FFFFFF] text-[#7A7A7A] transition duration-150 ease-out hover:bg-[#F6F4F1] hover:text-[#2E2E2E]"
+              onClick={() => copyToClipboard("Link copied", created.messageUrl)}
+              title="Copy link"
+              type="button"
+            >
+              ⧉
+            </button>
+          </div>
 
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-wrap gap-2">
             {created.deliveryMode === "email" && created.gmailComposeUrl ? (
               <button className="btn btn-primary inline-block text-sm" onClick={openGmailDraft} type="button">
                 Open Gmail draft
               </button>
             ) : null}
-            <button className="btn text-sm" onClick={() => copyToClipboard("Link copied", created.messageUrl)} type="button">
-              Copy link
-            </button>
-            <button className="btn text-sm" onClick={resetComposer} type="button">
-              Make another
-            </button>
-            {created.deliveryMode === "email" && created.gmailComposeUrl ? (
-              <button
-                className="btn text-sm"
-                disabled={!gmailOpened}
-                onClick={() => {
-                  setSendMarked(true);
-                }}
-                type="button"
-              >
-                I sent it
-              </button>
-            ) : null}
           </div>
 
           {created.deliveryMode === "email" ? (
-            <>
-              <div className="mt-3 text-sm text-[#6B6B6B]">
-                Recipient email: {created.recipientEmail ?? "Not provided (add recipient in Gmail)"}
-              </div>
-              {gmailOpened && !sendMarked ? (
-                <div className="mt-1 text-xs text-[#6B6B6B]">
-                  After sending in Gmail, come back and click &quot;I sent it&quot;.
-                </div>
-              ) : null}
-              {sendMarked ? <div className="mt-1 text-xs text-[#6B6B6B]">Sent confirmed.</div> : null}
-            </>
+            <div className="mt-3 text-sm text-[#6B6B6B]">
+              Recipient email: {created.recipientEmail ?? "Not provided (add recipient in Gmail)"}
+            </div>
           ) : (
             <div className="mt-2 text-xs text-[#6B6B6B]">{created.sharePreview}</div>
           )}
