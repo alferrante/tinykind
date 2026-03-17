@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 function formatGreetingName(value: string): string {
   const first = value.trim().split(/\s+/)[0] ?? "";
   if (!first) {
-    return "Angela";
+    return "";
   }
   return first.charAt(0).toUpperCase() + first.slice(1);
 }
@@ -30,7 +30,7 @@ export default async function HomePage() {
     ? await Promise.all([countSentBySenderEmail(senderEmail), getSenderStreakSummary(senderEmail, senderTimezone)])
     : [null, null];
   const senderDefaultName = senderProfile?.displayName?.trim() || (senderEmail ? senderEmail.split("@")[0] ?? "" : "");
-  const greetingName = formatGreetingName(senderDefaultName);
+  const greetingName = senderEmail ? formatGreetingName(senderDefaultName) : "";
   const promptSuggestions = getPromptSuggestionsForDate(
     new Date(),
     senderTimezone,
@@ -69,6 +69,7 @@ export default async function HomePage() {
         <CreateTinyKindCard
           googleEnabled={googleEnabled}
           greetingName={greetingName}
+          isAuthenticated={Boolean(senderEmail)}
           promptSuggestions={promptSuggestions}
           senderDefaultName={senderDefaultName}
           senderEmail={senderEmail}

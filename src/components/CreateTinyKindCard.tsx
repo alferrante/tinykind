@@ -26,6 +26,7 @@ interface CreateTinyKindCardProps {
   senderEmail: string | null;
   googleEnabled: boolean;
   greetingName: string;
+  isAuthenticated: boolean;
   promptSuggestions: readonly string[];
   senderSentCount: number | null;
   streakSummary: {
@@ -260,6 +261,7 @@ export default function CreateTinyKindCard({
   senderEmail,
   googleEnabled,
   greetingName,
+  isAuthenticated,
   promptSuggestions,
   senderSentCount,
   streakSummary,
@@ -530,7 +532,7 @@ export default function CreateTinyKindCard({
       {step === "compose" ? (
         <>
           <div className="mb-7 text-center sm:mb-8">
-            {streakSummary ? (
+            {isAuthenticated && streakSummary ? (
               <div className="mb-5 flex flex-wrap items-center justify-center gap-2.5 text-center sm:mb-6">
                 {streakSummary.currentStreak > 0 ? (
                   <span className="rounded-full border border-[#F2C275] bg-[#FFF7E7] px-3.5 py-1.5 text-[12px] font-medium text-[#B8771E] sm:px-4 sm:text-[13px]">
@@ -547,17 +549,36 @@ export default function CreateTinyKindCard({
               </div>
             ) : null}
 
-            <h1 className="text-[34px] font-medium leading-[1.06] tracking-[-0.03em] text-[#1F1F1F] sm:text-[46px]">
-              Hi {greetingName},
-            </h1>
-            <p className="mt-2.5 text-[18px] leading-[1.24] text-[#3C3B39] sm:text-[20px]">
-              Who would you like to appreciate today?
-            </p>
+            {isAuthenticated ? (
+              <>
+                <h1 className="text-[34px] font-medium leading-[1.06] tracking-[-0.03em] text-[#1F1F1F] sm:text-[46px]">
+                  Hi {greetingName},
+                </h1>
+                <p className="mt-2.5 text-[18px] leading-[1.24] text-[#3C3B39] sm:text-[20px]">
+                  Who would you like to appreciate today?
+                </p>
+              </>
+            ) : (
+              <>
+                <h1 className="text-[34px] font-medium leading-[1.06] tracking-[-0.03em] text-[#1F1F1F] sm:text-[44px]">
+                  Send a TinyKind
+                </h1>
+                <p className="mt-2.5 text-[18px] leading-[1.24] text-[#3C3B39] sm:text-[20px]">
+                  A small note of appreciation, ready to send in a minute.
+                </p>
+                <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#E7DED3] bg-[#FFFCF8] px-4 py-2 text-[13px] text-[#7B6F62] sm:text-[14px]">
+                  <span>Want opens, reactions, and streaks?</span>
+                  <a className="font-semibold text-[#2E2E2E] underline underline-offset-4" href={emailLoginHref}>
+                    Sign in
+                  </a>
+                </div>
+              </>
+            )}
           </div>
 
           {!senderEmail ? (
             <div className="mb-4 rounded-[18px] border border-[#E8E2DA] bg-[#FFFCF8] px-4 py-4 text-sm text-[#6B6B6B]">
-              <p className="text-[#2E2E2E]">Sign in, or add your email, so we can notify you when your TinyKind lands.</p>
+              <p className="text-[#2E2E2E]">Sign in to save your TinyKinds, track reactions, and keep your kindness streak going.</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {googleEnabled ? (
                   <a className="btn btn-primary inline-block px-4 py-2 text-sm" href={googleStartHref}>
