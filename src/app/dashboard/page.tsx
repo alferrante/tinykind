@@ -46,14 +46,66 @@ function formatRelativeTimestamp(iso: string): string {
   }
 }
 
-function activityLabel(item: Awaited<ReturnType<typeof listSenderActivityByEmail>>[number]): string {
+type SenderActivityItem = Awaited<ReturnType<typeof listSenderActivityByEmail>>[number];
+
+interface ActivityGroup {
+  key: string;
+  messageId: string | null;
+  slug: string | null;
+  recipientName: string;
+  sentAt: string | null;
+  latestAt: string;
+  items: SenderActivityItem[];
+}
+
+function groupActivity(items: SenderActivityItem[]): ActivityGroup[] {
+  const groups = new Map<string, ActivityGroup>();
+
+  for (const item of items) {
+    const key = item.messageId ?? item.slug ?? item.id;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.items.push(item);
+      if (!existing.sentAt && item.type === "sent") {
+        existing.sentAt = item.createdAt;
+      }
+      if (item.createdAt > existing.latestAt) {
+        existing.latestAt = item.createdAt;
+      }
+      continue;
+    }
+
+    groups.set(key, {
+      key,
+      messageId: item.messageId,
+      slug: item.slug,
+      recipientName: item.recipientName,
+      sentAt: item.type === "sent" ? item.createdAt : null,
+      latestAt: item.createdAt,
+      items: [item],
+    });
+  }
+
+  return [...groups.values()]
+    .map((group) => ({
+      ...group,
+      items: group.items.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
+    }))
+    .sort((a, b) => (a.latestAt < b.latestAt ? 1 : -1));
+}
+
+function groupedActivityLabel(item: SenderActivityItem): string {
   if (item.type === "opened") {
-    return `${item.recipientName} opened your TinyKind`;
+    return "Opened your TinyKind";
   }
   if (item.type === "reaction") {
-    return `${item.recipientName} reacted ${item.emoji ?? ""}`.trim();
+    return `Reacted ${item.emoji ?? ""}`.trim();
   }
-  return `You sent a TinyKind to ${item.recipientName}`;
+  return "TinyKind sent";
+}
+
+function groupTitle(group: ActivityGroup): string {
+  return `You sent a TinyKind to ${group.recipientName}`;
 }
 
 export default async function DashboardPage() {
@@ -67,8 +119,9 @@ export default async function DashboardPage() {
   const [messages, streakSummary, activity] = await Promise.all([
     listMessagesBySenderEmail(senderEmail, 200),
     getSenderStreakSummary(senderEmail, senderTimezone),
-    listSenderActivityByEmail(senderEmail, 10),
+    listSenderActivityByEmail(senderEmail, 40),
   ]);
+  const activityGroups = groupActivity(activity).slice(0, 10);
 
   return (
     <main className="min-h-screen bg-[#F7F6F4] text-[#2E2E2E]">
@@ -115,22 +168,37 @@ export default async function DashboardPage() {
             <h2 className="text-2xl font-medium leading-tight">Recent activity</h2>
             <p className="mt-2 text-sm text-[#6B6B6B]">Open and reaction updates land here after your notification emails go out.</p>
 
-            {activity.length === 0 ? (
+            {activityGroups.length === 0 ? (
               <p className="mt-4 text-sm text-[#6B6B6B]">No activity yet. Your next open or reaction will show up here.</p>
             ) : (
               <ul className="mt-4 grid gap-3">
-                {activity.map((item) => (
-                  <li key={item.id} className="rounded-xl border border-[#E8E6E3] bg-[#FFFFFF] p-4">
+                {activityGroups.map((group) => (
+                  <li key={group.key} className="rounded-xl border border-[#E8E6E3] bg-[#FFFFFF] p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                      <strong>{activityLabel(item)}</strong>
-                      <span className="text-xs text-[#6B6B6B]" title={formatTimestamp(item.createdAt)}>
-                        {formatRelativeTimestamp(item.createdAt)}
+                      <strong>{groupTitle(group)}</strong>
+                      <span className="text-xs text-[#6B6B6B]" title={formatTimestamp(group.latestAt)}>
+                        {formatRelativeTimestamp(group.latestAt)}
                       </span>
                     </div>
-                    {item.slug ? (
+                    <div className="mt-3 grid gap-2 rounded-lg bg-[#FAF8F5] px-3 py-3">
+                      {group.items
+                        .filter((item) => item.type !== "sent")
+                        .map((item) => (
+                          <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#6B6B6B]">
+                            <span>{groupedActivityLabel(item)}</span>
+                            <span title={formatTimestamp(item.createdAt)}>
+                              {formatRelativeTimestamp(item.createdAt)}
+                            </span>
+                          </div>
+                        ))}
+                      {group.items.every((item) => item.type === "sent") ? (
+                        <div className="text-xs text-[#8B847C]">No opens or reactions yet.</div>
+                      ) : null}
+                    </div>
+                    {group.slug ? (
                       <div className="mt-3">
-                        <Link className="mono text-xs text-[#6B6B6B] underline" href={`/t/${item.slug}`} target="_blank">
-                          /t/{item.slug}
+                        <Link className="mono text-xs text-[#6B6B6B] underline" href={`/t/${group.slug}`} target="_blank">
+                          /t/{group.slug}
                         </Link>
                       </div>
                     ) : null}
