@@ -79,10 +79,10 @@ function SuggestionIcon({ suggestion }: { suggestion: string }) {
 
 export default function SuggestionRow({ suggestions, onSelect }: SuggestionRowProps) {
   return (
-    <div className="mt-10 flex flex-wrap items-center justify-center gap-3 text-left text-[#5F5B55] sm:mt-12">
+    <div className="mt-8 flex flex-wrap items-center justify-center gap-2.5 text-left text-[#5F5B55] sm:mt-9">
       {suggestions.map((suggestion) => (
         <button
-          className="inline-flex max-w-full items-center gap-2.5 rounded-[16px] border border-[#DDD6CC] bg-[#FFFEFC] px-4 py-2.5 text-[13px] font-medium leading-none text-[#5E5A54] transition duration-150 ease-out hover:border-[#CDC4B8] hover:bg-[#FBF8F3] hover:text-[#2E2E2E] focus:outline-none focus-visible:ring-4 focus-visible:ring-[#E9DDD0] sm:px-5 sm:text-[14px]"
+          className="inline-flex max-w-full items-center gap-2 rounded-[16px] border border-[#DDD6CC] bg-[#FFFEFC] px-3.5 py-2 text-[12px] font-medium leading-none text-[#5E5A54] transition duration-150 ease-out hover:border-[#CDC4B8] hover:bg-[#FBF8F3] hover:text-[#2E2E2E] focus:outline-none focus-visible:ring-4 focus-visible:ring-[#E9DDD0] sm:px-4 sm:text-[13px]"
           key={suggestion}
           onClick={() => onSelect(suggestion)}
           type="button"
