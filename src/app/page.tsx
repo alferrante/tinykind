@@ -4,7 +4,7 @@ import Link from "next/link";
 import AccountMenu from "@/components/AccountMenu";
 import CreateTinyKindCard from "@/components/CreateTinyKindCard";
 import { getPromptSuggestionsForDate } from "@/lib/promptSuggestions";
-import { getAuthenticatedSenderEmail, isGoogleAuthConfigured } from "@/lib/senderAuth";
+import { getAuthenticatedSenderEmail } from "@/lib/senderAuth";
 import { countSentBySenderEmail, getSenderProfile, getSenderStreakSummary } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,6 @@ function formatGreetingName(value: string): string {
 
 export default async function HomePage() {
   const senderEmail = await getAuthenticatedSenderEmail();
-  const googleEnabled = isGoogleAuthConfigured();
   const senderProfile = senderEmail ? await getSenderProfile(senderEmail) : null;
   const senderTimezone = senderProfile?.reminder.timezone ?? "America/Los_Angeles";
   const [sentCount, streakSummary] = senderEmail
@@ -67,7 +66,6 @@ export default async function HomePage() {
 
       <section className="mx-auto w-full max-w-[700px] px-5 pb-16 pt-8 sm:px-6 sm:pt-10">
         <CreateTinyKindCard
-          googleEnabled={googleEnabled}
           greetingName={greetingName}
           isAuthenticated={Boolean(senderEmail)}
           promptSuggestions={promptSuggestions}

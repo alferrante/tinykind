@@ -24,7 +24,6 @@ type ComposerStep = "compose" | "share";
 interface CreateTinyKindCardProps {
   senderDefaultName?: string;
   senderEmail: string | null;
-  googleEnabled: boolean;
   greetingName: string;
   isAuthenticated: boolean;
   promptSuggestions: readonly string[];
@@ -259,7 +258,6 @@ function ShareButton({
 export default function CreateTinyKindCard({
   senderDefaultName = "",
   senderEmail,
-  googleEnabled,
   greetingName,
   isAuthenticated,
   promptSuggestions,
@@ -267,6 +265,7 @@ export default function CreateTinyKindCard({
   streakSummary,
 }: CreateTinyKindCardProps) {
   const composeTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const senderEmailInputRef = useRef<HTMLInputElement | null>(null);
   const suggestionIntervalRef = useRef<number | null>(null);
   const suggestionTimeoutRef = useRef<number | null>(null);
   const [step, setStep] = useState<ComposerStep>("compose");
@@ -280,6 +279,7 @@ export default function CreateTinyKindCard({
   const [copied, setCopied] = useState("");
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [suggestionPulse, setSuggestionPulse] = useState(false);
+  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
 
   useEffect(() => {
     if (draftLoaded) {
@@ -344,7 +344,6 @@ export default function CreateTinyKindCard({
     return params.toString();
   }, [senderNotifyEmail]);
 
-  const googleStartHref = "/api/auth/google/start?next=%2F";
   const emailLoginHref = `/login?${loginQuery}`;
 
   const copyToClipboard = useCallback(async (label: string, value: string): Promise<void> => {
@@ -403,7 +402,7 @@ export default function CreateTinyKindCard({
     }
   }
 
-  const createTinyKind = useCallback(async (): Promise<void> => {
+  const createTinyKind = useCallback(async (options?: { skipSignInPrompt?: boolean }): Promise<void> => {
     if (bodyTooLong) {
       setError("Message exceeds 500 characters.");
       return;
@@ -412,14 +411,23 @@ export default function CreateTinyKindCard({
       setError("Write your TinyKind first.");
       return;
     }
+    if (!senderEmail && !options?.skipSignInPrompt) {
+      setError(null);
+      setShowSignInPrompt(true);
+      window.setTimeout(() => senderEmailInputRef.current?.focus(), 30);
+      return;
+    }
     if (!senderEmail && !looksLikeEmail(senderNotifyEmail)) {
-      setError("Sign in, or add your email so we can send reactions back to you.");
+      setShowSignInPrompt(false);
+      setError("Add your email so we can send reactions back to you.");
+      window.setTimeout(() => senderEmailInputRef.current?.focus(), 30);
       return;
     }
 
     try {
       setLoading(true);
       setError(null);
+      setShowSignInPrompt(false);
       const response = await fetch("/api/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -516,8 +524,10 @@ export default function CreateTinyKindCard({
   function handleSendAnother(): void {
     setBody("");
     setRecipientName("");
+    setSenderNotifyEmail("");
     setCreated(null);
     setError(null);
+    setShowSignInPrompt(false);
     setStep("compose");
     window.setTimeout(() => composeTextareaRef.current?.focus(), 40);
   }
@@ -566,31 +576,9 @@ export default function CreateTinyKindCard({
                 <p className="mt-2.5 text-[18px] leading-[1.24] text-[#3C3B39] sm:text-[20px]">
                   A small note of appreciation, ready to send in a minute.
                 </p>
-                <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#E7DED3] bg-[#FFFCF8] px-4 py-2 text-[13px] text-[#7B6F62] sm:text-[14px]">
-                  <span>Want opens, reactions, and streaks?</span>
-                  <a className="font-semibold text-[#2E2E2E] underline underline-offset-4" href={emailLoginHref}>
-                    Sign in
-                  </a>
-                </div>
               </>
             )}
           </div>
-
-          {!senderEmail ? (
-            <div className="mb-4 rounded-[18px] border border-[#E8E2DA] bg-[#FFFCF8] px-4 py-4 text-sm text-[#6B6B6B]">
-              <p className="text-[#2E2E2E]">Sign in to save your TinyKinds, track reactions, and keep your kindness streak going.</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {googleEnabled ? (
-                  <a className="btn btn-primary inline-block px-4 py-2 text-sm" href={googleStartHref}>
-                    Continue with Google
-                  </a>
-                ) : null}
-                <a className="btn inline-block px-4 py-2 text-sm" href={emailLoginHref}>
-                  Email sign-in link
-                </a>
-              </div>
-            </div>
-          ) : null}
 
           <div
             className={[
@@ -626,21 +614,6 @@ export default function CreateTinyKindCard({
               </label>
             </div>
 
-            {!senderEmail ? (
-              <div className="border-t border-[#EFE2D8] px-4 py-2.5 sm:px-5">
-                <label className="flex items-center gap-3 text-[14px] text-[#A18D7A] sm:text-[15px]">
-                  <span className="font-semibold text-[#A5917D]">Your email</span>
-                  <input
-                    className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[#7C6A5A] placeholder:text-[#C0B2A5] focus:outline-none"
-                    onChange={(event) => setSenderNotifyEmail(event.target.value)}
-                    placeholder="you@email.com"
-                    type="email"
-                    value={senderNotifyEmail}
-                  />
-                </label>
-              </div>
-            ) : null}
-
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#EFE2D8] px-4 py-3 sm:px-5 sm:py-3.5">
               <span className={`text-[13px] transition-colors duration-150 sm:text-sm ${counterClassName}`}>
                 {charCount}/500 {bodyTooLong ? "(too long)" : ""}
@@ -673,6 +646,61 @@ export default function CreateTinyKindCard({
               </button>
             </div>
           </div>
+
+          {showSignInPrompt && !senderEmail ? (
+            <div className="mt-4 rounded-[18px] border border-[#E8E2DA] bg-[#FFFCF8] px-4 py-4 text-left sm:px-5">
+              <h2 className="text-[18px] font-semibold text-[#2E2E2E] sm:text-[20px]">
+                Want to save this TinyKind before you send it?
+              </h2>
+              <p className="mt-1.5 text-sm leading-[1.5] text-[#6B6B6B] sm:text-[15px]">
+                Sign in to save your TinyKinds, track reactions, and keep your streak. Or send it as a guest with your email.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <a className="btn btn-primary inline-block px-4 py-2 text-sm" href={emailLoginHref}>
+                  Sign in to save it
+                </a>
+              </div>
+              <div className="mt-4 rounded-[16px] border border-[#EFE2D8] bg-white px-4 py-3">
+                <label className="grid gap-1 text-sm font-medium text-[#2E2E2E]">
+                  Continue as guest
+                  <input
+                    className="field mono"
+                    onChange={(event) => setSenderNotifyEmail(event.target.value)}
+                    placeholder="you@email.com"
+                    ref={senderEmailInputRef}
+                    type="email"
+                    value={senderNotifyEmail}
+                  />
+                </label>
+                <p className="mt-2 text-[13px] leading-[1.5] text-[#7B6F62]">
+                  We’ll use this only to send reaction notifications back to you.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    className="btn inline-block px-4 py-2 text-sm"
+                    onClick={() => {
+                      void createTinyKind({ skipSignInPrompt: true });
+                    }}
+                    type="button"
+                  >
+                    Send as guest
+                  </button>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  className="text-sm font-medium text-[#7B6F62] underline underline-offset-4"
+                  onClick={() => {
+                    setShowSignInPrompt(false);
+                    setError(null);
+                  }}
+                  type="button"
+                >
+                  Back to editing
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           <SuggestionRow onSelect={applySuggestion} suggestions={promptSuggestions} />
 
