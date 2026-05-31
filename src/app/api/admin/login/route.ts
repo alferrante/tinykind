@@ -4,6 +4,7 @@ import {
   getAdminSessionCookieValue,
   verifyAdminPassword,
 } from "@/lib/adminAuth";
+import { enforceRateLimit } from "@/lib/rateLimit";
 
 function safeNextPath(input: string | null): string {
   if (!input || !input.startsWith("/")) {
@@ -15,7 +16,31 @@ function safeNextPath(input: string | null): string {
   return input;
 }
 
+function tooManyAttemptsResponse(request: NextRequest, retryAfterSeconds: number): NextResponse {
+  if (request.headers.get("accept")?.includes("application/json")) {
+    return NextResponse.json(
+      { error: "Too many login attempts. Please wait and try again." },
+      { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } },
+    );
+  }
+
+  const response = new NextResponse(null, { status: 303 });
+  response.headers.set("Location", "/admin/login?error=rate_limited");
+  response.headers.set("Retry-After", String(retryAfterSeconds));
+  response.headers.set("Cache-Control", "no-store");
+  return response;
+}
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const limiter = enforceRateLimit(request, {
+    scope: "admin-login",
+    maxHits: 8,
+    windowMs: 10 * 60 * 1000,
+  });
+  if (!limiter.ok) {
+    return tooManyAttemptsResponse(request, limiter.retryAfterSeconds);
+  }
+
   const contentType = request.headers.get("content-type") ?? "";
   let password = "";
   let nextPath: string | null = "/admin";

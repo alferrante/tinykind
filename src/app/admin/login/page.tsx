@@ -17,6 +17,7 @@ export default async function AdminLoginPage({
 }) {
   const params = searchParams ? await searchParams : undefined;
   const showError = params?.error === "1";
+  const showRateLimit = params?.error === "rate_limited";
   const passwordConfigured = Boolean(process.env.ADMIN_PASSWORD);
 
   return (
@@ -48,6 +49,9 @@ export default async function AdminLoginPage({
             Sign in
           </button>
           {showError ? <div className="text-sm text-[#a22d2d]">Invalid password.</div> : null}
+          {showRateLimit ? (
+            <div className="text-sm text-[#a22d2d]">Too many login attempts. Wait a few minutes and try again.</div>
+          ) : null}
         </form>
       </section>
     </main>
