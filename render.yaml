@@ -9,7 +9,7 @@ services:
     autoDeploy: true
     envVars:
       - key: NODE_VERSION
-        value: 20.18.0
+        value: 24.16.0
       - key: NEXT_PUBLIC_BASE_URL
         sync: false
       - key: ADMIN_PASSWORD
