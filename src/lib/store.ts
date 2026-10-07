@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { lock } from "proper-lockfile";
+import { emailDigest } from "@/lib/emailIdentity";
 import {
   type AllowedReactionEmoji,
   ALLOWED_REACTIONS,
@@ -20,6 +21,16 @@ import {
   type UnwrapStyle,
 } from "@/lib/types";
 
+interface EmailDelivery {
+  id: string;
+  payloadDigest: string;
+  firstAttemptAt: number;
+  leaseUntil: number;
+  claimId: string;
+  sent: boolean;
+  providerMessageId?: string;
+}
+
 interface TinyKindDb {
   messages: TinyKindMessage[];
   reactions: Reaction[];
@@ -29,6 +40,9 @@ interface TinyKindDb {
   events: TinyKindEvent[];
   authRequests: { destination: string; timestamp: number }[];
   consumedLinks: { digest: string; expiresAt: number }[];
+  emailDeliveries: EmailDelivery[];
+  emailSuppressions: { destination: string; reason: "complaint" | "hard-bounce"; createdAt: string }[];
+  emailWebhookEvents: string[];
 }
 
 const PROD_DEFAULT_DATA_DIR = "/var/data";
@@ -53,6 +67,9 @@ const EMPTY_DB: TinyKindDb = {
   events: [],
   authRequests: [],
   consumedLinks: [],
+  emailDeliveries: [],
+  emailSuppressions: [],
+  emailWebhookEvents: [],
 };
 
 // Serialize full read/modify/write operations across route bundles and processes.
@@ -147,6 +164,9 @@ async function readDb(): Promise<TinyKindDb> {
     events,
     authRequests: parsed.authRequests ?? [],
     consumedLinks: parsed.consumedLinks ?? [],
+    emailDeliveries: parsed.emailDeliveries ?? [],
+    emailSuppressions: parsed.emailSuppressions ?? [],
+    emailWebhookEvents: parsed.emailWebhookEvents ?? [],
   };
 }
 
@@ -574,7 +594,10 @@ export async function upsertReaction(input: UpsertReactionInput): Promise<Upsert
     if (existing) {
       const changed = existing.emoji !== input.emoji;
       existing.emoji = input.emoji;
-      existing.createdAt = now;
+      if (changed) {
+        existing.createdAt = now;
+        existing.notificationId = randomUUID();
+      }
       if (changed) {
         // Force notification attempt for the new reaction selection.
         existing.notifiedAt = null;
@@ -594,6 +617,7 @@ export async function upsertReaction(input: UpsertReactionInput): Promise<Upsert
       id: randomUUID(),
       messageId: message.id,
       emoji: input.emoji,
+      notificationId: randomUUID(),
       createdAt: now,
       recipientFingerprint: input.recipientFingerprint,
       notifiedAt: null,
@@ -1005,6 +1029,7 @@ function getLocalTimeParts(date: Date, timezone: string): { weekday: number; hou
 export interface DueReminder {
   senderEmail: string;
   profileId: string;
+  weekKey: string;
 }
 
 export async function listDueReminders(now = new Date()): Promise<DueReminder[]> {
@@ -1028,7 +1053,7 @@ export async function listDueReminders(now = new Date()): Promise<DueReminder[]>
       if (reminder.lastSentWeekKey === weekKey) {
         continue;
       }
-      due.push({ senderEmail: profile.email, profileId: profile.id });
+      due.push({ senderEmail: profile.email, profileId: profile.id, weekKey });
     }
     return due;
   });
@@ -1062,6 +1087,7 @@ export async function recordOpen(input: RecordOpenInput): Promise<{
   open: MessageOpen;
   message: TinyKindMessage;
   shouldNotify: boolean;
+  notificationKey: string;
 }> {
   return withDbLock(async () => {
     const db = await readDb();
@@ -1087,11 +1113,18 @@ export async function recordOpen(input: RecordOpenInput): Promise<{
       !lastNotifiedForFingerprint ||
       now.getTime() - new Date(lastNotifiedForFingerprint.notifiedAt as string).getTime() >= cooldownMs;
 
+    const recentAttempt = db.opens.findLast((entry) =>
+      entry.messageId === message.id && entry.recipientFingerprint === input.recipientFingerprint &&
+      entry.notificationKey && now.getTime() - new Date(entry.notificationStartedAt ?? entry.openedAt).getTime() < cooldownMs,
+    );
+    const notificationKey = recentAttempt?.notificationKey ?? `open/${randomUUID()}`;
     const open: MessageOpen = {
       id: randomUUID(),
       messageId: message.id,
       recipientFingerprint: input.recipientFingerprint,
       openedAt: now.toISOString(),
+      notificationKey,
+      notificationStartedAt: recentAttempt?.notificationStartedAt ?? recentAttempt?.openedAt ?? now.toISOString(),
       notifiedAt: null,
     };
     db.opens.push(open);
@@ -1104,7 +1137,7 @@ export async function recordOpen(input: RecordOpenInput): Promise<{
       },
     });
     await writeDb(db);
-    return { open, message, shouldNotify };
+    return { open, message, shouldNotify, notificationKey };
   });
 }
 
@@ -1128,10 +1161,7 @@ export async function reserveAuthEmail(email: string): Promise<{ ok: boolean; re
     const db = await readDb();
     const now = Date.now();
     const day = 24 * 60 * 60 * 1000;
-    let destination = email.trim().toLowerCase();
-    const [local, domain] = destination.split("@");
-    if (domain === "gmail.com" || domain === "googlemail.com") destination = `${local.split("+")[0].replaceAll(".", "")}@gmail.com`;
-    const digest = createHash("sha256").update(destination).digest("hex");
+    const digest = emailDigest(email);
     db.authRequests = db.authRequests.filter((entry) => entry.timestamp > now - day);
     const target = db.authRequests.filter((entry) => entry.destination === digest);
     const hour = db.authRequests.filter((entry) => entry.timestamp > now - 60 * 60 * 1000);
@@ -1156,6 +1186,68 @@ export async function consumeMagicLink(token: string, expiresAt: number): Promis
     const digest = createHash("sha256").update(Buffer.from(token, "base64url")).digest("hex");
     if (!Number.isSafeInteger(expiresAt) || expiresAt <= now || db.consumedLinks.some((entry) => entry.digest === digest)) throw new Error("Link expired or already used.");
     db.consumedLinks.push({ digest, expiresAt });
+    await writeDb(db);
+  });
+}
+
+
+export async function isEmailSuppressed(email: string): Promise<boolean> {
+  return withDbLock(async () => {
+    const db = await readDb();
+    return db.emailSuppressions.some((entry) => entry.destination === emailDigest(email));
+  });
+}
+
+export async function recordEmailSuppression(eventId: string, addresses: string[], reason: "complaint" | "hard-bounce"): Promise<void> {
+  return withDbLock(async () => {
+    const db = await readDb();
+    if (db.emailWebhookEvents.includes(eventId)) return;
+    for (const address of addresses) {
+      const destination = emailDigest(address);
+      if (!db.emailSuppressions.some((entry) => entry.destination === destination)) {
+        db.emailSuppressions.push({ destination, reason, createdAt: new Date().toISOString() });
+      }
+    }
+    db.emailWebhookEvents.push(eventId);
+    await writeDb(db);
+  });
+}
+
+export async function claimEmailDelivery(id: string, payloadDigest: string): Promise<
+  { state: "claimed"; claimId: string } | { state: "sent"; providerMessageId?: string } | { state: "blocked"; reason: string }
+> {
+  return withDbLock(async () => {
+    const db = await readDb();
+    const existing = db.emailDeliveries.find((entry) => entry.id === id);
+    const now = Date.now();
+    if (existing) {
+      if (existing.payloadDigest !== payloadDigest) return { state: "blocked", reason: "send-payload-conflict" };
+      if (existing.sent) return { state: "sent", providerMessageId: existing.providerMessageId };
+      if (existing.leaseUntil > now) return { state: "blocked", reason: "send-in-progress" };
+      // Resend retains keys for 24 hours. Leave a safety margin and never
+      // automatically resend an ambiguous event outside that window.
+      if (now - existing.firstAttemptAt >= 23 * 60 * 60 * 1000) return { state: "blocked", reason: "delivery-status-unknown" };
+    }
+    const claimId = randomUUID();
+    if (existing) {
+      existing.claimId = claimId;
+      existing.leaseUntil = now + 5 * 60 * 1000;
+    } else {
+      db.emailDeliveries.push({ id, payloadDigest, firstAttemptAt: now, leaseUntil: now + 5 * 60 * 1000, claimId, sent: false });
+    }
+    await writeDb(db);
+    return { state: "claimed", claimId };
+  });
+}
+
+export async function finishEmailDelivery(id: string, claimId: string, sent: boolean, providerMessageId?: string): Promise<void> {
+  return withDbLock(async () => {
+    const db = await readDb();
+    const delivery = db.emailDeliveries.find((entry) => entry.id === id && entry.claimId === claimId);
+    if (!delivery) return;
+    delivery.sent = sent;
+    delivery.providerMessageId = providerMessageId;
+    delivery.leaseUntil = 0;
     await writeDb(db);
   });
 }

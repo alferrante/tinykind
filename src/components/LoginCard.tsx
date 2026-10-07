@@ -1,18 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Script from "next/script";
+
+type Turnstile = {
+  render: (container: HTMLElement, options: { sitekey: string; action: string; callback: (token: string) => void; "expired-callback": () => void; "error-callback": () => void }) => string;
+  reset: (widget: string) => void;
+  remove: (widget: string) => void;
+};
+function turnstile(): Turnstile | undefined {
+  return (window as Window & { turnstile?: Turnstile }).turnstile;
+}
 
 interface LoginCardProps {
   initialEmail?: string;
   googleEnabled: boolean;
   nextPath: string;
+  botProtection: { enabled: boolean; siteKey: string };
 }
 
-export default function LoginCard({ initialEmail = "", googleEnabled, nextPath }: LoginCardProps) {
+export default function LoginCard({ initialEmail = "", googleEnabled, nextPath, botProtection }: LoginCardProps) {
   const [email, setEmail] = useState(initialEmail);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [scriptReady, setScriptReady] = useState(false);
+  const [challengeToken, setChallengeToken] = useState("");
+  const container = useRef<HTMLDivElement>(null);
+  const widget = useRef<string | null>(null);
+
+  useEffect(() => {
+    const api = turnstile();
+    if (!botProtection.enabled || !botProtection.siteKey || !scriptReady || !container.current || !api) return;
+    widget.current = api.render(container.current, {
+      sitekey: botProtection.siteKey, action: "auth-login", callback: setChallengeToken,
+      "expired-callback": () => setChallengeToken(""),
+      "error-callback": () => { setChallengeToken(""); setError("Security check unavailable. Please try again."); },
+    });
+    return () => { if (widget.current) api.remove(widget.current); widget.current = null; };
+  }, [botProtection.enabled, botProtection.siteKey, scriptReady]);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -23,7 +49,7 @@ export default function LoginCard({ initialEmail = "", googleEnabled, nextPath }
       const response = await fetch("/api/auth/request-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, next: nextPath }),
+        body: JSON.stringify({ email, next: nextPath, challengeToken }),
       });
       const payload = (await response.json()) as { ok?: boolean; error?: string };
       if (!response.ok) {
@@ -34,6 +60,8 @@ export default function LoginCard({ initialEmail = "", googleEnabled, nextPath }
       setError(submitError instanceof Error ? submitError.message : "Could not send sign-in link.");
     } finally {
       setLoading(false);
+      setChallengeToken("");
+      if (widget.current) turnstile()?.reset(widget.current);
     }
   }
 
@@ -64,8 +92,14 @@ export default function LoginCard({ initialEmail = "", googleEnabled, nextPath }
             value={email}
           />
         </label>
+        {botProtection.enabled ? (
+          <>
+            <Script id="tinykind-turnstile" src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" onReady={() => setScriptReady(true)} onError={() => setError("Security check unavailable. Please try again.")} />
+            <div ref={container} aria-label="Security check" />
+          </>
+        ) : null}
         <div>
-          <button className="btn" disabled={loading} type="submit">
+          <button className="btn" disabled={loading || (botProtection.enabled && !challengeToken)} type="submit">
             {loading ? "Sending..." : "Email me a sign-in link"}
           </button>
         </div>

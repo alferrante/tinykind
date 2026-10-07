@@ -74,6 +74,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       try {
         const result = await sendReactionNotification({
           toEmail: message.senderNotifyEmail,
+          idempotencyKey: `reaction/${reaction.notificationId ?? reaction.id}`,
           senderName: message.senderName,
           recipientName: message.recipientName,
           emoji: reaction.emoji,

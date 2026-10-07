@@ -39,6 +39,8 @@ export interface MessageOpen {
   messageId: string;
   recipientFingerprint: string;
   openedAt: string;
+  notificationKey?: string;
+  notificationStartedAt?: string;
   notifiedAt: string | null;
 }
 
@@ -64,6 +66,7 @@ export interface Reaction {
   id: string;
   messageId: string;
   emoji: AllowedReactionEmoji;
+  notificationId?: string;
   createdAt: string;
   recipientFingerprint: string;
   notifiedAt: string | null;

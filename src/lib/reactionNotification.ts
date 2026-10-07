@@ -2,6 +2,7 @@ import { sendTinyKindEmail } from "@/lib/email";
 
 interface ReactionNotificationInput {
   toEmail: string;
+  idempotencyKey?: string;
   senderName: string;
   recipientName: string;
   emoji: string;
@@ -30,6 +31,7 @@ export async function sendReactionNotification(
 
   return sendTinyKindEmail({
     toEmail: input.toEmail,
+    idempotencyKey: input.idempotencyKey,
     subject,
     text,
     html,

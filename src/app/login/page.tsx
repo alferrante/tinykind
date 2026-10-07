@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getAuthenticatedSenderEmail, isGoogleAuthConfigured, sanitizePostAuthPath } from "@/lib/senderAuth";
+import { botProtectionConfig } from "@/lib/botProtection";
 import LoginCard from "@/components/LoginCard";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +34,7 @@ export default async function LoginPage({
         </header>
 
         <div className="max-w-[560px]">
-          <LoginCard googleEnabled={googleEnabled} initialEmail={email} nextPath={nextPath} />
+          <LoginCard botProtection={botProtectionConfig()} googleEnabled={googleEnabled} initialEmail={email} nextPath={nextPath} />
           {error ? (
             <div className="mt-3 rounded-lg border border-[#a22d2d44] bg-[#fff5f5] px-4 py-3 text-sm text-[#a22d2d]">
               {error === "google_unavailable"

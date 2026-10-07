@@ -7,13 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test:security": "tsx --test tests/security.test.ts"
+    "test:security": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "next": "^16.4.0",
     "proper-lockfile": "^4.1.2",
     "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "react-dom": "^19.2.6",
+    "svix": "^2.7.0"
   },
   "devDependencies": {
     "@types/node": "^24.12.4",

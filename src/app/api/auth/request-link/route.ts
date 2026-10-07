@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { sendLoginLinkEmail } from "@/lib/authNotification";
 import { addOperationalEvent, reserveAuthEmail } from "@/lib/store";
 import { createMagicLinkToken, sanitizePostAuthPath } from "@/lib/senderAuth";
+import { verifyLoginChallenge } from "@/lib/botProtection";
 import { enforceRateLimit } from "@/lib/rateLimit";
 
 interface RequestLinkPayload {
   email?: string;
   next?: string;
+  challengeToken?: unknown;
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -30,6 +32,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "Valid email is required." }, { status: 400 });
     }
 
+    if (!await verifyLoginChallenge(payload.challengeToken)) {
+      return NextResponse.json({ error: "Please complete the security check and try again." }, { status: 403 });
+    }
     const reservation = await reserveAuthEmail(email);
     if (!reservation.ok) {
       return NextResponse.json({ error: "Please wait before requesting another sign-in link." }, {
@@ -41,6 +46,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const loginUrl = `${baseUrl}/auth/callback?token=${encodeURIComponent(token)}&next=${encodeURIComponent(nextPath)}`;
     const result = await sendLoginLinkEmail({
       toEmail: email,
+      idempotencyKey: `auth/${token}`,
       loginUrl,
     });
 
@@ -52,7 +58,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       },
     });
 
-    if (!result.sent) {
+    if (!result.sent && result.reason !== "recipient-suppressed") {
       return NextResponse.json({ error: `Unable to send link: ${result.reason ?? "unknown"}` }, { status: 400 });
     }
 

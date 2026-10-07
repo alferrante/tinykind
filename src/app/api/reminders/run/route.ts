@@ -23,6 +23,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   for (const reminder of due) {
     const result = await sendWeeklyReminderEmail({
       toEmail: reminder.senderEmail,
+      idempotencyKey: `reminder/${reminder.profileId}/${reminder.weekKey}`,
       appUrl: baseUrl,
     });
     if (result.sent) {

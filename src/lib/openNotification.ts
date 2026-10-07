@@ -2,6 +2,7 @@ import { sendTinyKindEmail } from "@/lib/email";
 
 interface OpenNotificationInput {
   toEmail: string;
+  idempotencyKey?: string;
   senderName: string;
   recipientName: string;
   messageUrl: string;
@@ -29,6 +30,7 @@ export async function sendOpenNotification(
 
   return sendTinyKindEmail({
     toEmail: input.toEmail,
+    idempotencyKey: input.idempotencyKey,
     subject,
     text,
     html,

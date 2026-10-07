@@ -2,6 +2,7 @@ import { sendTinyKindEmail } from "@/lib/email";
 
 interface SendLoginLinkInput {
   toEmail: string;
+  idempotencyKey?: string;
   loginUrl: string;
 }
 
@@ -20,6 +21,7 @@ export async function sendLoginLinkEmail(input: SendLoginLinkInput): Promise<{ s
   ].join("");
   return sendTinyKindEmail({
     toEmail: input.toEmail,
+    idempotencyKey: input.idempotencyKey,
     subject,
     text,
     html,
@@ -28,6 +30,7 @@ export async function sendLoginLinkEmail(input: SendLoginLinkInput): Promise<{ s
 
 interface SendReminderInput {
   toEmail: string;
+  idempotencyKey?: string;
   appUrl: string;
 }
 
@@ -44,6 +47,7 @@ export async function sendWeeklyReminderEmail(input: SendReminderInput): Promise
   ].join("");
   return sendTinyKindEmail({
     toEmail: input.toEmail,
+    idempotencyKey: input.idempotencyKey,
     subject,
     text,
     html,

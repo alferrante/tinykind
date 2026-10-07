@@ -60,7 +60,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         },
       );
     }
-    const { open, message, shouldNotify } = await recordOpen({ slug, recipientFingerprint });
+    const { open, message, shouldNotify, notificationKey } = await recordOpen({ slug, recipientFingerprint });
 
     let notification: OpenNotificationStatus = {
       attempted: false,
@@ -73,6 +73,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const messageUrl = `${baseUrl}/t/${message.shortLinkSlug}?open=1`;
       const result = await sendOpenNotification({
         toEmail: message.senderNotifyEmail,
+        idempotencyKey: notificationKey,
         senderName: message.senderName,
         recipientName: message.recipientName,
         messageUrl,
