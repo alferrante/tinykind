@@ -1,9 +1,9 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 
 export const SENDER_SESSION_COOKIE = "tinykind_sender_session";
-const AUTH_VERSION = "v1";
+const AUTH_VERSION = "v2";
 const MAGIC_LINK_TTL_SECONDS = 20 * 60;
 const SESSION_TTL_SECONDS = 90 * 24 * 60 * 60;
 
@@ -42,94 +42,47 @@ function validEmail(value: string): boolean {
 
 export function sanitizePostAuthPath(value: string | null | undefined, fallback = "/dashboard"): string {
   const raw = (value ?? "").trim();
-  if (!raw) {
-    return fallback;
-  }
-  if (!raw.startsWith("/") || raw.startsWith("//")) {
-    return fallback;
-  }
-  if (raw.startsWith("/api/")) {
-    return fallback;
-  }
-  if (raw.length > 300) {
-    return fallback;
-  }
-  return raw;
+  if (!raw.startsWith("/") || raw.startsWith("//") || /[\\\u0000-\u0020\u007f]/.test(raw) || raw.length > 300) return fallback;
+  const parsed = new URL(raw, "https://tinykind.invalid");
+  if (parsed.origin !== "https://tinykind.invalid" || parsed.pathname.startsWith("//") || parsed.pathname === "/api" || parsed.pathname.startsWith("/api/")) return fallback;
+  return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+}
+
+function createToken(email: string, purpose: "magic" | "session", ttl: number): string {
+  const normalized = normalizeEmail(email);
+  if (!validEmail(normalized)) throw new Error("A valid email is required.");
+  const expiresAt = Math.floor(Date.now() / 1000) + ttl;
+  const payload = `${AUTH_VERSION}|${purpose}|${normalized}|${expiresAt}|${randomUUID()}`;
+  return Buffer.from(`${payload}|${sign(payload)}`).toString("base64url");
+}
+
+function verifyToken(token: string, purpose: "magic" | "session"): { email: string; expiresAt: number } {
+  if (token.length > 2048) throw new Error("Invalid token.");
+  const parts = Buffer.from(token, "base64url").toString("utf8").split("|");
+  if (parts.length !== 6) throw new Error("Invalid token.");
+  const [version, tokenPurpose, emailRaw, expiresRaw, nonce, signature] = parts;
+  const payload = parts.slice(0, 5).join("|");
+  if (version !== AUTH_VERSION || tokenPurpose !== purpose || !nonce || !safeEqual(signature, sign(payload))) throw new Error("Invalid token.");
+  const email = normalizeEmail(emailRaw);
+  const expiresAt = Number(expiresRaw);
+  if (!validEmail(email) || !Number.isSafeInteger(expiresAt) || expiresAt <= Math.floor(Date.now() / 1000)) throw new Error("Token expired or invalid.");
+  return { email, expiresAt };
 }
 
 export function createMagicLinkToken(email: string): string {
-  const normalized = normalizeEmail(email);
-  if (!validEmail(normalized)) {
-    throw new Error("A valid email is required.");
-  }
-  const issuedAt = Math.floor(Date.now() / 1000);
-  const expiresAt = issuedAt + MAGIC_LINK_TTL_SECONDS;
-  const payload = `${AUTH_VERSION}|${normalized}|${expiresAt}`;
-  const signature = sign(payload);
-  return Buffer.from(`${payload}|${signature}`).toString("base64url");
+  return createToken(email, "magic", MAGIC_LINK_TTL_SECONDS);
 }
 
-export function verifyMagicLinkToken(token: string): { email: string } {
-  const decoded = Buffer.from(token, "base64url").toString("utf8");
-  const parts = decoded.split("|");
-  if (parts.length !== 4) {
-    throw new Error("Invalid token.");
-  }
-  const [version, emailRaw, expiresRaw, signature] = parts;
-  const payload = `${version}|${emailRaw}|${expiresRaw}`;
-  if (!safeEqual(signature, sign(payload))) {
-    throw new Error("Invalid token signature.");
-  }
-  if (version !== AUTH_VERSION) {
-    throw new Error("Invalid token version.");
-  }
-  const email = normalizeEmail(emailRaw);
-  if (!validEmail(email)) {
-    throw new Error("Invalid token email.");
-  }
-  const expiresAt = Number(expiresRaw);
-  if (!Number.isFinite(expiresAt) || expiresAt < Math.floor(Date.now() / 1000)) {
-    throw new Error("Token expired.");
-  }
-  return { email };
+export function verifyMagicLinkToken(token: string): { email: string; expiresAt: number } {
+  return verifyToken(token, "magic");
 }
 
 export function createSessionToken(email: string): string {
-  const normalized = normalizeEmail(email);
-  const issuedAt = Math.floor(Date.now() / 1000);
-  const expiresAt = issuedAt + SESSION_TTL_SECONDS;
-  const payload = `${AUTH_VERSION}|${normalized}|${expiresAt}`;
-  const signature = sign(payload);
-  return Buffer.from(`${payload}|${signature}`).toString("base64url");
+  return createToken(email, "session", SESSION_TTL_SECONDS);
 }
 
 export function verifySessionToken(token: string): { email: string } | null {
-  try {
-    const decoded = Buffer.from(token, "base64url").toString("utf8");
-    const parts = decoded.split("|");
-    if (parts.length !== 4) {
-      return null;
-    }
-    const [version, emailRaw, expiresRaw, signature] = parts;
-    const payload = `${version}|${emailRaw}|${expiresRaw}`;
-    if (!safeEqual(signature, sign(payload))) {
-      return null;
-    }
-    if (version !== AUTH_VERSION) {
-      return null;
-    }
-    const email = normalizeEmail(emailRaw);
-    if (!validEmail(email)) {
-      return null;
-    }
-    const expiresAt = Number(expiresRaw);
-    if (!Number.isFinite(expiresAt) || expiresAt < Math.floor(Date.now() / 1000)) {
-      return null;
-    }
-    return { email };
-  } catch {
-    return null;
-  }
+  try { return verifyToken(token, "session"); } catch { return null; }
 }
 
 export async function getAuthenticatedSenderEmail(): Promise<string | null> {

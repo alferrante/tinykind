@@ -84,9 +84,7 @@ function clearDraft(): void {
   }
 }
 
-function looksLikeEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
-}
+
 
 function formatDisplayNameFromEmail(value: string): string {
   const localPart = value.trim().split("@")[0] ?? "";
@@ -417,12 +415,6 @@ export default function CreateTinyKindCard({
       window.setTimeout(() => senderEmailInputRef.current?.focus(), 30);
       return;
     }
-    if (!senderEmail && !looksLikeEmail(senderNotifyEmail)) {
-      setShowSignInPrompt(false);
-      setError("Add your email so we can send reactions back to you.");
-      window.setTimeout(() => senderEmailInputRef.current?.focus(), 30);
-      return;
-    }
 
     try {
       setLoading(true);
@@ -477,7 +469,6 @@ export default function CreateTinyKindCard({
     effectiveSenderName,
     normalizedSenderNotifyEmail,
     senderEmail,
-    senderNotifyEmail,
     trimmedRecipientName,
     website,
   ]);
@@ -653,7 +644,7 @@ export default function CreateTinyKindCard({
                 Want to save this TinyKind before you send it?
               </h2>
               <p className="mt-1.5 text-sm leading-[1.5] text-[#6B6B6B] sm:text-[15px]">
-                Sign in to save your TinyKinds, track reactions, and keep your streak. Or send it as a guest with your email.
+                Sign in to save your TinyKinds, track reactions, and keep your streak. Or share a link as a guest.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <a className="btn btn-primary inline-block px-4 py-2 text-sm" href={emailLoginHref}>
@@ -661,20 +652,7 @@ export default function CreateTinyKindCard({
                 </a>
               </div>
               <div className="mt-4 rounded-[16px] border border-[#EFE2D8] bg-white px-4 py-3">
-                <label className="grid gap-1 text-sm font-medium text-[#2E2E2E]">
-                  Continue as guest
-                  <input
-                    className="field mono"
-                    onChange={(event) => setSenderNotifyEmail(event.target.value)}
-                    placeholder="you@email.com"
-                    ref={senderEmailInputRef}
-                    type="email"
-                    value={senderNotifyEmail}
-                  />
-                </label>
-                <p className="mt-2 text-[13px] leading-[1.5] text-[#7B6F62]">
-                  We’ll use this only to send reaction notifications back to you.
-                </p>
+                <p className="text-sm text-[#7B6F62]">Sign in to receive reaction notifications.</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     className="btn inline-block px-4 py-2 text-sm"

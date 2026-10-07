@@ -67,7 +67,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       sent: false,
     };
 
-    if (openNotifyEnabled() && shouldNotify && message.senderNotifyEmail) {
+    if (openNotifyEnabled() && shouldNotify && message.senderNotifyEmail && message.senderNotifyVerified === true) {
       notification.attempted = true;
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? request.nextUrl.origin;
       const messageUrl = `${baseUrl}/t/${message.shortLinkSlug}?open=1`;

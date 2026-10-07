@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendLoginLinkEmail } from "@/lib/authNotification";
-import { ensureSenderProfile, addOperationalEvent } from "@/lib/store";
+import { addOperationalEvent, reserveAuthEmail } from "@/lib/store";
 import { createMagicLinkToken, sanitizePostAuthPath } from "@/lib/senderAuth";
 import { enforceRateLimit } from "@/lib/rateLimit";
 
@@ -30,7 +30,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "Valid email is required." }, { status: 400 });
     }
 
-    await ensureSenderProfile(email);
+    const reservation = await reserveAuthEmail(email);
+    if (!reservation.ok) {
+      return NextResponse.json({ error: "Please wait before requesting another sign-in link." }, {
+        status: 429, headers: { "Retry-After": String(reservation.retryAfterSeconds) },
+      });
+    }
     const token = createMagicLinkToken(email);
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? request.nextUrl.origin;
     const loginUrl = `${baseUrl}/auth/callback?token=${encodeURIComponent(token)}&next=${encodeURIComponent(nextPath)}`;

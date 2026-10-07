@@ -66,7 +66,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     };
 
     const shouldAttemptNotification = hasSenderEmail && (changed || !reaction.notifiedAt);
-    if (shouldAttemptNotification && message.senderNotifyEmail) {
+    if (shouldAttemptNotification && message.senderNotifyEmail && message.senderNotifyVerified === true) {
       const retryUnchanged = !changed && !reaction.notifiedAt;
       notification.attempted = true;
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? request.nextUrl.origin;

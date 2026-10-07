@@ -90,10 +90,10 @@ if [[ "$dry_run" == "true" ]]; then
 fi
 
 if [[ "$mode" == "send" ]]; then
-  osascript <<EOF
-on run
-  set recipientHandle to "$(printf '%s' "$to" | sed 's/"/\\"/g')"
-  set messageText to "$(printf '%s' "$body" | sed 's/"/\\"/g')"
+  osascript - "$to" "$body" <<'EOF'
+on run argv
+  set recipientHandle to item 1 of argv
+  set messageText to item 2 of argv
 
   tell application "Messages"
     activate
@@ -119,15 +119,15 @@ EOF
   exit 0
 fi
 
-osascript <<EOF
+osascript - "$to" "$body" "$verify_focus" <<'EOF'
 on compactText(t)
   return do shell script "printf %s " & quoted form of t & " | tr -cd '[:alnum:]@._'"
 end compactText
 
-on run
-  set recipientHandle to "$(printf '%s' "$to" | sed 's/"/\\"/g')"
-  set messageText to "$(printf '%s' "$body" | sed 's/"/\\"/g')"
-  set verifyFocus to $verify_focus
+on run argv
+  set recipientHandle to item 1 of argv
+  set messageText to item 2 of argv
+  set verifyFocus to (item 3 of argv is "true")
   set recipientCompact to my compactText(recipientHandle)
 
   tell application "Messages" to activate

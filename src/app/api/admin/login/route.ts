@@ -4,17 +4,8 @@ import {
   getAdminSessionCookieValue,
   verifyAdminPassword,
 } from "@/lib/adminAuth";
+import { sanitizePostAuthPath } from "@/lib/senderAuth";
 import { enforceRateLimit } from "@/lib/rateLimit";
-
-function safeNextPath(input: string | null): string {
-  if (!input || !input.startsWith("/")) {
-    return "/admin";
-  }
-  if (input.startsWith("//")) {
-    return "/admin";
-  }
-  return input;
-}
 
 function tooManyAttemptsResponse(request: NextRequest, retryAfterSeconds: number): NextResponse {
   if (request.headers.get("accept")?.includes("application/json")) {
@@ -63,7 +54,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const destinationPath = safeNextPath(nextPath);
+  const destinationPath = sanitizePostAuthPath(nextPath, "/admin");
   if (!verifyAdminPassword(password)) {
     const failed = new NextResponse(null, { status: 303 });
     failed.headers.set("Location", "/admin/login?error=1");

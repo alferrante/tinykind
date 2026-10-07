@@ -1,6 +1,8 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { lock } from "proper-lockfile";
 import {
   type AllowedReactionEmoji,
   ALLOWED_REACTIONS,
@@ -25,6 +27,8 @@ interface TinyKindDb {
   reports: AbuseReport[];
   senderProfiles: SenderProfile[];
   events: TinyKindEvent[];
+  authRequests: { destination: string; timestamp: number }[];
+  consumedLinks: { digest: string; expiresAt: number }[];
 }
 
 const PROD_DEFAULT_DATA_DIR = "/var/data";
@@ -47,7 +51,44 @@ const EMPTY_DB: TinyKindDb = {
   reports: [],
   senderProfiles: [],
   events: [],
+  authRequests: [],
+  consumedLinks: [],
 };
+
+// Serialize full read/modify/write operations across route bundles and processes.
+const storeGlobal = globalThis as typeof globalThis & { tinykindStoreContext?: AsyncLocalStorage<boolean>; tinykindStoreQueue?: Promise<void> };
+const storeContext = storeGlobal.tinykindStoreContext ??= new AsyncLocalStorage<boolean>();
+async function withDbLock<T>(operation: () => Promise<T>): Promise<T> {
+  if (storeContext.getStore()) return operation();
+  const previous = storeGlobal.tinykindStoreQueue ?? Promise.resolve();
+  let releaseQueue!: () => void;
+  storeGlobal.tinykindStoreQueue = new Promise<void>((resolve) => { releaseQueue = resolve; });
+  await previous;
+  let releaseFile: (() => Promise<void>) | undefined;
+  try {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    releaseFile = await lock(path.join(DATA_DIR, "tinykind-db"), {
+      realpath: false, stale: 30_000, update: 5_000,
+      retries: { retries: 600, factor: 1, minTimeout: 50, maxTimeout: 50 },
+    });
+    return await storeContext.run(true, operation);
+  } finally {
+    try { await releaseFile?.(); } finally { releaseQueue(); }
+  }
+}
+
+async function publishDb(db: TinyKindDb): Promise<void> {
+  const temporary = `${DATA_FILE}.${randomUUID()}.tmp`;
+  try {
+    const file = await fs.open(temporary, "wx", 0o600);
+    try { await file.writeFile(JSON.stringify(db, null, 2), "utf8"); await file.sync(); } finally { await file.close(); }
+    await fs.rename(temporary, DATA_FILE);
+  } finally { await fs.unlink(temporary).catch(() => undefined); }
+}
+
+function validTimezone(timezone: string): boolean {
+  try { new Intl.DateTimeFormat("en-US", { timeZone: timezone }).format(); return true; } catch { return false; }
+}
 
 const STYLE_OPTIONS: UnwrapStyle[] = ["A", "B", "C"];
 
@@ -56,7 +97,7 @@ async function ensureDataFile(): Promise<void> {
   try {
     await fs.access(DATA_FILE);
   } catch {
-    await fs.writeFile(DATA_FILE, JSON.stringify(EMPTY_DB, null, 2), "utf8");
+    await publishDb(EMPTY_DB);
   }
 }
 
@@ -104,12 +145,14 @@ async function readDb(): Promise<TinyKindDb> {
     reports,
     senderProfiles,
     events,
+    authRequests: parsed.authRequests ?? [],
+    consumedLinks: parsed.consumedLinks ?? [],
   };
 }
 
 async function writeDb(db: TinyKindDb): Promise<void> {
   await ensureDataFile();
-  await fs.writeFile(DATA_FILE, JSON.stringify(db, null, 2), "utf8");
+  await publishDb(db);
   if (BACKUP_ON_WRITE) {
     void writeBackupSnapshot(db);
   }
@@ -161,12 +204,14 @@ export async function createManualBackupSnapshot(): Promise<{
   path: string;
   count: number;
 }> {
-  const db = await readDb();
-  await fs.mkdir(BACKUP_DIR, { recursive: true });
-  const filePath = path.join(BACKUP_DIR, backupFileName(new Date()));
-  await fs.writeFile(filePath, JSON.stringify(db, null, 2), "utf8");
-  await pruneBackups();
-  return { path: filePath, count: db.messages.filter((item) => !item.deletedAt).length };
+  return withDbLock(async () => {
+    const db = await readDb();
+    await fs.mkdir(BACKUP_DIR, { recursive: true });
+    const filePath = path.join(BACKUP_DIR, backupFileName(new Date()));
+    await fs.writeFile(filePath, JSON.stringify(db, null, 2), "utf8");
+    await pruneBackups();
+    return { path: filePath, count: db.messages.filter((item) => !item.deletedAt).length };
+  });
 }
 
 export async function getStorageDiagnostics(): Promise<{
@@ -180,34 +225,36 @@ export async function getStorageDiagnostics(): Promise<{
   backupCount: number;
   messageCount: number;
 }> {
-  let dataFileExists = false;
-  try {
-    await fs.access(DATA_FILE);
-    dataFileExists = true;
-  } catch {
-    dataFileExists = false;
-  }
+  return withDbLock(async () => {
+    let dataFileExists = false;
+    try {
+      await fs.access(DATA_FILE);
+      dataFileExists = true;
+    } catch {
+      dataFileExists = false;
+    }
 
-  let backupCount = 0;
-  try {
-    const files = await fs.readdir(BACKUP_DIR);
-    backupCount = files.filter((name) => name.startsWith("tinykind-") && name.endsWith(".json")).length;
-  } catch {
-    backupCount = 0;
-  }
+    let backupCount = 0;
+    try {
+      const files = await fs.readdir(BACKUP_DIR);
+      backupCount = files.filter((name) => name.startsWith("tinykind-") && name.endsWith(".json")).length;
+    } catch {
+      backupCount = 0;
+    }
 
-  const db = await readDb();
-  return {
-    dataDir: DATA_DIR,
-    dataFile: DATA_FILE,
-    backupDir: BACKUP_DIR,
-    backupOnWrite: BACKUP_ON_WRITE,
-    backupRetentionDays: BACKUP_RETENTION_DAYS,
-    backupMaxFiles: BACKUP_MAX_FILES,
-    dataFileExists,
-    backupCount,
-    messageCount: db.messages.filter((item) => !item.deletedAt).length,
-  };
+    const db = await readDb();
+    return {
+      dataDir: DATA_DIR,
+      dataFile: DATA_FILE,
+      backupDir: BACKUP_DIR,
+      backupOnWrite: BACKUP_ON_WRITE,
+      backupRetentionDays: BACKUP_RETENTION_DAYS,
+      backupMaxFiles: BACKUP_MAX_FILES,
+      dataFileExists,
+      backupCount,
+      messageCount: db.messages.filter((item) => !item.deletedAt).length,
+    };
+  });
 }
 
 function trimAndSingleSpace(value: string): string {
@@ -331,6 +378,7 @@ export function makeRecipientFingerprint(seed: string): string {
 export interface CreateMessageInput {
   senderName: string;
   senderNotifyEmail?: string | null;
+  senderNotifyVerified?: boolean;
   recipientName?: string | null;
   recipientContact?: string | null;
   body: string;
@@ -345,108 +393,119 @@ export interface CreateMessageInput {
 }
 
 export async function createMessage(input: CreateMessageInput): Promise<TinyKindMessage> {
-  const senderName = trimAndSingleSpace(input.senderName);
-  const senderNotifyEmail = validateOptionalEmail(input.senderNotifyEmail);
-  const recipientContact = trimAndSingleSpace(input.recipientContact ?? "");
-  const deliveryMode: DeliveryMode = input.deliveryMode === "email" ? "email" : "link";
-  const normalizedRecipientName = trimAndSingleSpace(input.recipientName ?? "");
-  const recipientName =
-    normalizedRecipientName ||
-    (deliveryMode === "email" && recipientContact.includes("@")
-      ? recipientContact
-          .split("@")[0]
-          .replace(/[._-]+/g, " ")
-          .trim()
-          .replace(/\b\w/g, (char) => char.toUpperCase()) || "Someone"
-      : "Someone");
+  return withDbLock(async () => {
+    const senderName = trimAndSingleSpace(input.senderName);
+    const senderNotifyEmail = validateOptionalEmail(input.senderNotifyEmail);
+    const recipientContact = trimAndSingleSpace(input.recipientContact ?? "");
+    const deliveryMode: DeliveryMode = input.deliveryMode === "email" ? "email" : "link";
+    const normalizedRecipientName = trimAndSingleSpace(input.recipientName ?? "");
+    const recipientName =
+      normalizedRecipientName ||
+      (deliveryMode === "email" && recipientContact.includes("@")
+        ? recipientContact
+            .split("@")[0]
+            .replace(/[._-]+/g, " ")
+            .trim()
+            .replace(/\b\w/g, (char) => char.toUpperCase()) || "Someone"
+        : "Someone");
 
-  if (!senderName) {
-    throw new Error("senderName is required.");
-  }
-  const db = await readDb();
-  let slug = generateSlug();
-  while (db.messages.some((message) => message.shortLinkSlug === slug)) {
-    slug = generateSlug();
-  }
-
-  const now = new Date().toISOString();
-  const channel: Channel = input.channel ?? (deliveryMode === "email" ? "email" : "sms");
-  const message: TinyKindMessage = {
-    id: randomUUID(),
-    userId: "local-dev-user",
-    recipientId: randomUUID(),
-    senderName,
-    senderNotifyEmail,
-    recipientName,
-    recipientContact: recipientContact || null,
-    channel,
-    deliveryMode,
-    createdAt: now,
-    rawText: input.rawText ?? null,
-    voiceUrl: input.voiceUrl ?? null,
-    voiceDurationSeconds: input.voiceDurationSeconds ?? null,
-    transcriptRaw: input.transcriptRaw ?? null,
-    transcriptCleaned: input.transcriptCleaned ?? null,
-    body: validateBody(input.body),
-    unwrapStyle: input.unwrapStyle ?? randomStyle(),
-    shortLinkSlug: slug,
-    status: "sent",
-    deletedAt: null,
-  };
-
-  db.messages.push(message);
-  if (senderNotifyEmail) {
-    const profile = getOrCreateSenderProfile(db, senderNotifyEmail, senderName);
-    if (senderName && profile.displayName !== senderName) {
-      profile.displayName = senderName;
+    if (!senderName) {
+      throw new Error("senderName is required.");
     }
-    profile.updatedAt = now;
-  }
-  await logEvent(db, "message_created", {
-    messageId: message.id,
-    senderEmail: senderNotifyEmail,
-    metadata: {
-      slug: message.shortLinkSlug,
-      channel: message.channel,
-      deliveryMode: message.deliveryMode,
-    },
+    const db = await readDb();
+    let slug = generateSlug();
+    while (db.messages.some((message) => message.shortLinkSlug === slug)) {
+      slug = generateSlug();
+    }
+
+    const now = new Date().toISOString();
+    const channel: Channel = input.channel ?? (deliveryMode === "email" ? "email" : "sms");
+    const message: TinyKindMessage = {
+      id: randomUUID(),
+      userId: "local-dev-user",
+      recipientId: randomUUID(),
+      senderName,
+      senderNotifyEmail,
+      senderNotifyVerified: input.senderNotifyVerified === true,
+      recipientName,
+      recipientContact: recipientContact || null,
+      channel,
+      deliveryMode,
+      createdAt: now,
+      rawText: input.rawText ?? null,
+      voiceUrl: input.voiceUrl ?? null,
+      voiceDurationSeconds: input.voiceDurationSeconds ?? null,
+      transcriptRaw: input.transcriptRaw ?? null,
+      transcriptCleaned: input.transcriptCleaned ?? null,
+      body: validateBody(input.body),
+      unwrapStyle: input.unwrapStyle ?? randomStyle(),
+      shortLinkSlug: slug,
+      status: "sent",
+      deletedAt: null,
+    };
+
+    db.messages.push(message);
+    if (senderNotifyEmail) {
+      const profile = getOrCreateSenderProfile(db, senderNotifyEmail, senderName);
+      if (senderName && profile.displayName !== senderName) {
+        profile.displayName = senderName;
+      }
+      profile.updatedAt = now;
+    }
+    await logEvent(db, "message_created", {
+      messageId: message.id,
+      senderEmail: senderNotifyEmail,
+      metadata: {
+        slug: message.shortLinkSlug,
+        channel: message.channel,
+        deliveryMode: message.deliveryMode,
+      },
+    });
+    await writeDb(db);
+    return message;
   });
-  await writeDb(db);
-  return message;
 }
 
 export async function getMessageBySlug(slug: string): Promise<TinyKindMessage | null> {
-  const db = await readDb();
-  return db.messages.find((message) => message.shortLinkSlug === slug && !message.deletedAt) ?? null;
+  return withDbLock(async () => {
+    const db = await readDb();
+    return db.messages.find((message) => message.shortLinkSlug === slug && !message.deletedAt) ?? null;
+  });
 }
 
 export async function getMessageById(messageId: string): Promise<TinyKindMessage | null> {
-  const db = await readDb();
-  return db.messages.find((message) => message.id === messageId && !message.deletedAt) ?? null;
+  return withDbLock(async () => {
+    const db = await readDb();
+    return db.messages.find((message) => message.id === messageId && !message.deletedAt) ?? null;
+  });
 }
 
 export async function deleteMessageById(messageId: string): Promise<boolean> {
-  const db = await readDb();
-  const target = db.messages.find((message) => message.id === messageId && !message.deletedAt);
-  if (!target) {
-    return false;
-  }
-  target.deletedAt = new Date().toISOString();
-  await logEvent(db, "message_deleted", {
-    messageId: target.id,
-    senderEmail: target.senderNotifyEmail,
-    metadata: { slug: target.shortLinkSlug },
+  return withDbLock(async () => {
+    const db = await readDb();
+    const target = db.messages.find((message) => message.id === messageId && !message.deletedAt);
+    if (!target) {
+      return false;
+    }
+    target.deletedAt = new Date().toISOString();
+    await logEvent(db, "message_deleted", {
+      messageId: target.id,
+      senderEmail: target.senderNotifyEmail,
+      metadata: { slug: target.shortLinkSlug },
+    });
+    await writeDb(db);
+    return true;
   });
-  await writeDb(db);
-  return true;
 }
 
 export async function listRecentMessages(limit = 20): Promise<TinyKindMessage[]> {
-  const db = await readDb();
-  return db.messages
-    .filter((message) => !message.deletedAt)
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
-    .slice(0, limit);
+  return withDbLock(async () => {
+    const db = await readDb();
+    return db.messages
+      .filter((message) => !message.deletedAt)
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+      .slice(0, limit);
+  });
 }
 
 export interface MessageWithLatestReaction {
@@ -457,24 +516,26 @@ export interface MessageWithLatestReaction {
 export async function listRecentMessagesWithLatestReaction(
   limit = 200,
 ): Promise<MessageWithLatestReaction[]> {
-  const db = await readDb();
-  const messages = db.messages
-    .filter((message) => !message.deletedAt)
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
-    .slice(0, limit);
+  return withDbLock(async () => {
+    const db = await readDb();
+    const messages = db.messages
+      .filter((message) => !message.deletedAt)
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+      .slice(0, limit);
 
-  const latestByMessageId = new Map<string, Reaction>();
-  const reactions = [...db.reactions].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-  for (const reaction of reactions) {
-    if (!latestByMessageId.has(reaction.messageId)) {
-      latestByMessageId.set(reaction.messageId, reaction);
+    const latestByMessageId = new Map<string, Reaction>();
+    const reactions = [...db.reactions].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    for (const reaction of reactions) {
+      if (!latestByMessageId.has(reaction.messageId)) {
+        latestByMessageId.set(reaction.messageId, reaction);
+      }
     }
-  }
 
-  return messages.map((message) => ({
-    message,
-    latestReaction: latestByMessageId.get(message.id) ?? null,
-  }));
+    return messages.map((message) => ({
+      message,
+      latestReaction: latestByMessageId.get(message.id) ?? null,
+    }));
+  });
 }
 
 interface UpsertReactionInput {
@@ -490,94 +551,102 @@ export interface UpsertReactionResult {
 }
 
 export async function upsertReaction(input: UpsertReactionInput): Promise<UpsertReactionResult> {
-  if (!isAllowedReaction(input.emoji)) {
-    throw new Error("Unsupported emoji.");
-  }
-
-  const db = await readDb();
-  const message = db.messages.find(
-    (item) => item.shortLinkSlug === input.slug && item.status === "sent" && !item.deletedAt,
-  );
-  if (!message) {
-    throw new Error("Message not found.");
-  }
-
-  const now = new Date().toISOString();
-  const existing = db.reactions.find(
-    (reaction) =>
-      reaction.messageId === message.id &&
-      reaction.recipientFingerprint === input.recipientFingerprint,
-  );
-
-  if (existing) {
-    const changed = existing.emoji !== input.emoji;
-    existing.emoji = input.emoji;
-    existing.createdAt = now;
-    if (changed) {
-      // Force notification attempt for the new reaction selection.
-      existing.notifiedAt = null;
+  return withDbLock(async () => {
+    if (!isAllowedReaction(input.emoji)) {
+      throw new Error("Unsupported emoji.");
     }
-    if (changed) {
-      await logEvent(db, "reaction_saved", {
-        messageId: message.id,
-        senderEmail: message.senderNotifyEmail,
-        metadata: { emoji: input.emoji, mode: "update" },
-      });
+
+    const db = await readDb();
+    const message = db.messages.find(
+      (item) => item.shortLinkSlug === input.slug && item.status === "sent" && !item.deletedAt,
+    );
+    if (!message) {
+      throw new Error("Message not found.");
     }
+
+    const now = new Date().toISOString();
+    const existing = db.reactions.find(
+      (reaction) =>
+        reaction.messageId === message.id &&
+        reaction.recipientFingerprint === input.recipientFingerprint,
+    );
+
+    if (existing) {
+      const changed = existing.emoji !== input.emoji;
+      existing.emoji = input.emoji;
+      existing.createdAt = now;
+      if (changed) {
+        // Force notification attempt for the new reaction selection.
+        existing.notifiedAt = null;
+      }
+      if (changed) {
+        await logEvent(db, "reaction_saved", {
+          messageId: message.id,
+          senderEmail: message.senderNotifyEmail,
+          metadata: { emoji: input.emoji, mode: "update" },
+        });
+      }
+      await writeDb(db);
+      return { reaction: existing, message, changed };
+    }
+
+    const reaction: Reaction = {
+      id: randomUUID(),
+      messageId: message.id,
+      emoji: input.emoji,
+      createdAt: now,
+      recipientFingerprint: input.recipientFingerprint,
+      notifiedAt: null,
+    };
+    db.reactions.push(reaction);
+    await logEvent(db, "reaction_saved", {
+      messageId: message.id,
+      senderEmail: message.senderNotifyEmail,
+      metadata: { emoji: input.emoji, mode: "create" },
+    });
     await writeDb(db);
-    return { reaction: existing, message, changed };
-  }
-
-  const reaction: Reaction = {
-    id: randomUUID(),
-    messageId: message.id,
-    emoji: input.emoji,
-    createdAt: now,
-    recipientFingerprint: input.recipientFingerprint,
-    notifiedAt: null,
-  };
-  db.reactions.push(reaction);
-  await logEvent(db, "reaction_saved", {
-    messageId: message.id,
-    senderEmail: message.senderNotifyEmail,
-    metadata: { emoji: input.emoji, mode: "create" },
+    return { reaction, message, changed: true };
   });
-  await writeDb(db);
-  return { reaction, message, changed: true };
 }
 
 export async function markReactionNotificationSent(reactionId: string): Promise<void> {
-  const db = await readDb();
-  const reaction = db.reactions.find((item) => item.id === reactionId);
-  if (!reaction) {
-    return;
-  }
-  reaction.notifiedAt = new Date().toISOString();
-  await writeDb(db);
+  return withDbLock(async () => {
+    const db = await readDb();
+    const reaction = db.reactions.find((item) => item.id === reactionId);
+    if (!reaction) {
+      return;
+    }
+    reaction.notifiedAt = new Date().toISOString();
+    await writeDb(db);
+  });
 }
 
 export async function getLatestReactionForMessage(messageId: string): Promise<Reaction | null> {
-  const db = await readDb();
-  const latest = db.reactions
-    .filter((reaction) => reaction.messageId === messageId)
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
-  return latest ?? null;
+  return withDbLock(async () => {
+    const db = await readDb();
+    const latest = db.reactions
+      .filter((reaction) => reaction.messageId === messageId)
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
+    return latest ?? null;
+  });
 }
 
 export async function getMessageWithLatestReactionBySlug(
   slug: string,
 ): Promise<{ message: TinyKindMessage; latestReaction: Reaction | null } | null> {
-  const db = await readDb();
-  const message = db.messages.find((item) => item.shortLinkSlug === slug && !item.deletedAt) ?? null;
-  if (!message) {
-    return null;
-  }
+  return withDbLock(async () => {
+    const db = await readDb();
+    const message = db.messages.find((item) => item.shortLinkSlug === slug && !item.deletedAt) ?? null;
+    if (!message) {
+      return null;
+    }
 
-  const latestReaction =
-    db.reactions
-      .filter((reaction) => reaction.messageId === message.id)
-      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0] ?? null;
-  return { message, latestReaction };
+    const latestReaction =
+      db.reactions
+        .filter((reaction) => reaction.messageId === message.id)
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0] ?? null;
+    return { message, latestReaction };
+  });
 }
 
 interface CreateAbuseReportInput {
@@ -592,56 +661,62 @@ export async function createAbuseReport(input: CreateAbuseReportInput): Promise<
   report: AbuseReport;
   message: TinyKindMessage;
 }> {
-  if (!isAllowedReportReason(input.reason)) {
-    throw new Error("Unsupported report reason.");
-  }
+  return withDbLock(async () => {
+    if (!isAllowedReportReason(input.reason)) {
+      throw new Error("Unsupported report reason.");
+    }
 
-  const db = await readDb();
-  const message = db.messages.find(
-    (item) => item.shortLinkSlug === input.slug && item.status === "sent" && !item.deletedAt,
-  );
-  if (!message) {
-    throw new Error("Message not found.");
-  }
+    const db = await readDb();
+    const message = db.messages.find(
+      (item) => item.shortLinkSlug === input.slug && item.status === "sent" && !item.deletedAt,
+    );
+    if (!message) {
+      throw new Error("Message not found.");
+    }
 
-  const details = input.details?.trim() || null;
-  if (details && details.length > 300) {
-    throw new Error("Report details must be 300 characters or fewer.");
-  }
+    const details = input.details?.trim() || null;
+    if (details && details.length > 300) {
+      throw new Error("Report details must be 300 characters or fewer.");
+    }
 
-  const reporterEmail = validateOptionalEmail(input.reporterEmail);
-  const report: AbuseReport = {
-    id: randomUUID(),
-    messageId: message.id,
-    slug: message.shortLinkSlug,
-    reason: input.reason,
-    details,
-    reporterFingerprint: input.reporterFingerprint,
-    reporterEmail,
-    createdAt: new Date().toISOString(),
-  };
-  db.reports.push(report);
-  await logEvent(db, "message_reported", {
-    messageId: message.id,
-    senderEmail: message.senderNotifyEmail,
-    metadata: {
-      reason: report.reason,
+    const reporterEmail = validateOptionalEmail(input.reporterEmail);
+    const report: AbuseReport = {
+      id: randomUUID(),
+      messageId: message.id,
       slug: message.shortLinkSlug,
-      reporterEmail: reporterEmail ?? "",
-    },
+      reason: input.reason,
+      details,
+      reporterFingerprint: input.reporterFingerprint,
+      reporterEmail,
+      createdAt: new Date().toISOString(),
+    };
+    db.reports.push(report);
+    await logEvent(db, "message_reported", {
+      messageId: message.id,
+      senderEmail: message.senderNotifyEmail,
+      metadata: {
+        reason: report.reason,
+        slug: message.shortLinkSlug,
+        reporterEmail: reporterEmail ?? "",
+      },
+    });
+    await writeDb(db);
+    return { report, message };
   });
-  await writeDb(db);
-  return { report, message };
 }
 
 export async function listRecentReports(limit = 200): Promise<AbuseReport[]> {
-  const db = await readDb();
-  return [...db.reports].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, limit);
+  return withDbLock(async () => {
+    const db = await readDb();
+    return [...db.reports].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, limit);
+  });
 }
 
 export async function listRecentEvents(limit = 200): Promise<TinyKindEvent[]> {
-  const db = await readDb();
-  return [...db.events].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, limit);
+  return withDbLock(async () => {
+    const db = await readDb();
+    return [...db.events].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, limit);
+  });
 }
 
 export async function addOperationalEvent(
@@ -652,20 +727,24 @@ export async function addOperationalEvent(
     metadata?: Record<string, string | number | boolean | null | undefined>;
   } = {},
 ): Promise<void> {
-  const db = await readDb();
-  await logEvent(db, type, payload);
-  await writeDb(db);
+  return withDbLock(async () => {
+    const db = await readDb();
+    await logEvent(db, type, payload);
+    await writeDb(db);
+  });
 }
 
 export async function listMessagesBySenderEmail(
   senderEmail: string,
   limit = 200,
 ): Promise<MessageWithLatestReaction[]> {
-  const normalized = trimAndLower(senderEmail);
-  const rows = await listRecentMessagesWithLatestReaction(limit * 3);
-  return rows
-    .filter(({ message }) => (message.senderNotifyEmail ? message.senderNotifyEmail === normalized : false))
-    .slice(0, limit);
+  return withDbLock(async () => {
+    const normalized = trimAndLower(senderEmail);
+    const rows = await listRecentMessagesWithLatestReaction(limit * 3);
+    return rows
+      .filter(({ message }) => (message.senderNotifyEmail ? message.senderNotifyEmail === normalized : false))
+      .slice(0, limit);
+  });
 }
 
 export interface SenderStreakSummary {
@@ -728,93 +807,103 @@ export async function getSenderStreakSummary(
   timezone = "America/Los_Angeles",
   now = new Date(),
 ): Promise<SenderStreakSummary> {
-  const normalized = trimAndLower(senderEmail);
-  const db = await readDb();
-  const weekStarts = new Set<number>(
-    db.messages
-      .filter((message) => !message.deletedAt && message.senderNotifyEmail === normalized)
-      .map((message) => getWeekStartMs(new Date(message.createdAt), timezone)),
-  );
+  return withDbLock(async () => {
+    const normalized = trimAndLower(senderEmail);
+    const db = await readDb();
+    const weekStarts = new Set<number>(
+      db.messages
+        .filter((message) => !message.deletedAt && message.senderNotifyEmail === normalized)
+        .map((message) => getWeekStartMs(new Date(message.createdAt), timezone)),
+    );
 
-  const currentWeekStart = getWeekStartMs(now, timezone);
-  const sentThisWeek = weekStarts.has(currentWeekStart);
-  let currentStreak = 0;
-  let cursor = currentWeekStart;
-  while (weekStarts.has(cursor)) {
-    currentStreak += 1;
-    cursor -= 7 * 24 * 60 * 60 * 1000;
-  }
+    const currentWeekStart = getWeekStartMs(now, timezone);
+    const sentThisWeek = weekStarts.has(currentWeekStart);
+    let currentStreak = 0;
+    let cursor = currentWeekStart;
+    while (weekStarts.has(cursor)) {
+      currentStreak += 1;
+      cursor -= 7 * 24 * 60 * 60 * 1000;
+    }
 
-  return {
-    sentThisWeek,
-    currentStreak,
-  };
+    return {
+      sentThisWeek,
+      currentStreak,
+    };
+  });
 }
 
 export async function listSenderActivityByEmail(
   senderEmail: string,
   limit = 12,
 ): Promise<SenderActivityItem[]> {
-  const normalized = trimAndLower(senderEmail);
-  const db = await readDb();
-  const messagesById = new Map(db.messages.map((message) => [message.id, message]));
+  return withDbLock(async () => {
+    const normalized = trimAndLower(senderEmail);
+    const db = await readDb();
+    const messagesById = new Map(db.messages.map((message) => [message.id, message]));
 
-  const rows = db.events
-    .filter((event) => event.senderEmail === normalized)
-    .filter(
-      (event) =>
-        event.type === "message_created" ||
-        event.type === "open_notify_sent" ||
-        event.type === "reaction_notify_sent",
-    )
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
-    .slice(0, limit)
-    .map((event) => {
-      const message = event.messageId ? messagesById.get(event.messageId) : null;
-      const slug = message?.shortLinkSlug ?? event.metadata.slug ?? null;
-      const recipientName = message?.recipientName ?? "Someone";
-      const type: SenderActivityItem["type"] =
-        event.type === "message_created"
-          ? "sent"
-          : event.type === "open_notify_sent"
-            ? "opened"
-            : "reaction";
+    const rows = db.events
+      .filter((event) => event.senderEmail === normalized)
+      .filter(
+        (event) =>
+          event.type === "message_created" ||
+          event.type === "open_notify_sent" ||
+          event.type === "reaction_notify_sent",
+      )
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+      .slice(0, limit)
+      .map((event) => {
+        const message = event.messageId ? messagesById.get(event.messageId) : null;
+        const slug = message?.shortLinkSlug ?? event.metadata.slug ?? null;
+        const recipientName = message?.recipientName ?? "Someone";
+        const type: SenderActivityItem["type"] =
+          event.type === "message_created"
+            ? "sent"
+            : event.type === "open_notify_sent"
+              ? "opened"
+              : "reaction";
 
-      return {
-        id: event.id,
-        type,
-        createdAt: event.createdAt,
-        recipientName,
-        messageId: event.messageId,
-        slug,
-        emoji: event.metadata.emoji ?? null,
-      };
-    });
+        return {
+          id: event.id,
+          type,
+          createdAt: event.createdAt,
+          recipientName,
+          messageId: event.messageId,
+          slug,
+          emoji: event.metadata.emoji ?? null,
+        };
+      });
 
-  return rows;
+    return rows;
+  });
 }
 
 export async function countSentBySenderEmail(senderEmail: string): Promise<number> {
-  const normalized = trimAndLower(senderEmail);
-  const db = await readDb();
-  return db.messages.filter(
-    (message) => !message.deletedAt && message.senderNotifyEmail && message.senderNotifyEmail === normalized,
-  ).length;
+  return withDbLock(async () => {
+    const normalized = trimAndLower(senderEmail);
+    const db = await readDb();
+    return db.messages.filter(
+      (message) => !message.deletedAt && message.senderNotifyEmail && message.senderNotifyEmail === normalized,
+    ).length;
+  });
 }
 
 export async function ensureSenderProfile(email: string, displayName?: string | null): Promise<SenderProfile> {
-  const normalized = trimAndLower(email);
-  const db = await readDb();
-  const profile = getOrCreateSenderProfile(db, normalized, displayName);
-  profile.updatedAt = new Date().toISOString();
-  await writeDb(db);
-  return profile;
+  return withDbLock(async () => {
+    const normalized = trimAndLower(email);
+    const db = await readDb();
+    const profile = getOrCreateSenderProfile(db, normalized, displayName);
+    profile.updatedAt = new Date().toISOString();
+    await writeDb(db);
+    return profile;
+  });
 }
 
 export async function getSenderProfile(email: string): Promise<SenderProfile | null> {
-  const normalized = trimAndLower(email);
-  const db = await readDb();
-  return db.senderProfiles.find((profile) => profile.email === normalized) ?? null;
+  return withDbLock(async () => {
+    const normalized = trimAndLower(email);
+    const db = await readDb();
+    return db.senderProfiles.find((profile) => profile.email === normalized) ?? null;
+  });
 }
 
 export async function updateReminderSettings(
@@ -827,44 +916,46 @@ export async function updateReminderSettings(
     timezone: string;
   },
 ): Promise<SenderProfile> {
-  const normalized = trimAndLower(email);
-  if (!Number.isInteger(input.weekday) || input.weekday < 0 || input.weekday > 6) {
-    throw new Error("weekday must be between 0 and 6.");
-  }
-  if (!Number.isInteger(input.hour) || input.hour < 0 || input.hour > 23) {
-    throw new Error("hour must be between 0 and 23.");
-  }
-  if (!Number.isInteger(input.minute) || input.minute < 0 || input.minute > 59) {
-    throw new Error("minute must be between 0 and 59.");
-  }
-  const timezone = input.timezone.trim();
-  if (!timezone) {
-    throw new Error("timezone is required.");
-  }
+  return withDbLock(async () => {
+    const normalized = trimAndLower(email);
+    if (!Number.isInteger(input.weekday) || input.weekday < 0 || input.weekday > 6) {
+      throw new Error("weekday must be between 0 and 6.");
+    }
+    if (!Number.isInteger(input.hour) || input.hour < 0 || input.hour > 23) {
+      throw new Error("hour must be between 0 and 23.");
+    }
+    if (!Number.isInteger(input.minute) || input.minute < 0 || input.minute > 59) {
+      throw new Error("minute must be between 0 and 59.");
+    }
+    const timezone = input.timezone.trim();
+    if (!timezone || !validTimezone(timezone)) {
+      throw new Error("A valid timezone is required.");
+    }
 
-  const db = await readDb();
-  const profile = getOrCreateSenderProfile(db, normalized);
-  profile.reminder = {
-    ...profile.reminder,
-    enabled: input.enabled,
-    weekday: input.weekday,
-    hour: input.hour,
-    minute: input.minute,
-    timezone,
-  };
-  profile.updatedAt = new Date().toISOString();
-  await logEvent(db, "reminder_settings_updated", {
-    senderEmail: normalized,
-    metadata: {
+    const db = await readDb();
+    const profile = getOrCreateSenderProfile(db, normalized);
+    profile.reminder = {
+      ...profile.reminder,
       enabled: input.enabled,
       weekday: input.weekday,
       hour: input.hour,
       minute: input.minute,
       timezone,
-    },
+    };
+    profile.updatedAt = new Date().toISOString();
+    await logEvent(db, "reminder_settings_updated", {
+      senderEmail: normalized,
+      metadata: {
+        enabled: input.enabled,
+        weekday: input.weekday,
+        hour: input.hour,
+        minute: input.minute,
+        timezone,
+      },
+    });
+    await writeDb(db);
+    return profile;
   });
-  await writeDb(db);
-  return profile;
 }
 
 function getIsoWeekKey(date: Date, timezone: string): string {
@@ -917,45 +1008,49 @@ export interface DueReminder {
 }
 
 export async function listDueReminders(now = new Date()): Promise<DueReminder[]> {
-  const db = await readDb();
-  const due: DueReminder[] = [];
-  for (const profile of db.senderProfiles) {
-    const reminder = profile.reminder ?? defaultReminderSettings();
-    if (!reminder.enabled) {
-      continue;
+  return withDbLock(async () => {
+    const db = await readDb();
+    const due: DueReminder[] = [];
+    for (const profile of db.senderProfiles) {
+      const reminder = profile.reminder ?? defaultReminderSettings();
+      if (!reminder.enabled || !validTimezone(reminder.timezone)) {
+        continue;
+      }
+      const local = getLocalTimeParts(now, reminder.timezone);
+      if (local.weekday !== reminder.weekday) {
+        continue;
+      }
+      const minuteDelta = Math.abs(local.hour * 60 + local.minute - (reminder.hour * 60 + reminder.minute));
+      if (minuteDelta > 10) {
+        continue;
+      }
+      const weekKey = getIsoWeekKey(now, reminder.timezone);
+      if (reminder.lastSentWeekKey === weekKey) {
+        continue;
+      }
+      due.push({ senderEmail: profile.email, profileId: profile.id });
     }
-    const local = getLocalTimeParts(now, reminder.timezone);
-    if (local.weekday !== reminder.weekday) {
-      continue;
-    }
-    const minuteDelta = Math.abs(local.hour * 60 + local.minute - (reminder.hour * 60 + reminder.minute));
-    if (minuteDelta > 10) {
-      continue;
-    }
-    const weekKey = getIsoWeekKey(now, reminder.timezone);
-    if (reminder.lastSentWeekKey === weekKey) {
-      continue;
-    }
-    due.push({ senderEmail: profile.email, profileId: profile.id });
-  }
-  return due;
+    return due;
+  });
 }
 
 export async function markReminderSent(senderEmail: string, at = new Date()): Promise<void> {
-  const normalized = trimAndLower(senderEmail);
-  const db = await readDb();
-  const profile = db.senderProfiles.find((item) => item.email === normalized);
-  if (!profile) {
-    return;
-  }
-  const timezone = profile.reminder?.timezone || "America/Los_Angeles";
-  const weekKey = getIsoWeekKey(at, timezone);
-  profile.reminder = {
-    ...(profile.reminder ?? defaultReminderSettings()),
-    lastSentWeekKey: weekKey,
-  };
-  profile.updatedAt = at.toISOString();
-  await writeDb(db);
+  return withDbLock(async () => {
+    const normalized = trimAndLower(senderEmail);
+    const db = await readDb();
+    const profile = db.senderProfiles.find((item) => item.email === normalized);
+    if (!profile) {
+      return;
+    }
+    const timezone = profile.reminder?.timezone || "America/Los_Angeles";
+    const weekKey = getIsoWeekKey(at, timezone);
+    profile.reminder = {
+      ...(profile.reminder ?? defaultReminderSettings()),
+      lastSentWeekKey: weekKey,
+    };
+    profile.updatedAt = at.toISOString();
+    await writeDb(db);
+  });
 }
 
 interface RecordOpenInput {
@@ -968,55 +1063,99 @@ export async function recordOpen(input: RecordOpenInput): Promise<{
   message: TinyKindMessage;
   shouldNotify: boolean;
 }> {
-  const db = await readDb();
-  const message = db.messages.find(
-    (item) => item.shortLinkSlug === input.slug && item.status === "sent" && !item.deletedAt,
-  );
-  if (!message) {
-    throw new Error("Message not found.");
-  }
+  return withDbLock(async () => {
+    const db = await readDb();
+    const message = db.messages.find(
+      (item) => item.shortLinkSlug === input.slug && item.status === "sent" && !item.deletedAt,
+    );
+    if (!message) {
+      throw new Error("Message not found.");
+    }
 
-  const now = new Date();
-  const cooldownMs = 30 * 60 * 1000;
-  const lastNotifiedForFingerprint = db.opens
-    .filter(
-      (entry) =>
-        entry.messageId === message.id &&
-        entry.recipientFingerprint === input.recipientFingerprint &&
-        entry.notifiedAt,
-    )
-    .sort((a, b) => (a.openedAt < b.openedAt ? 1 : -1))[0];
+    const now = new Date();
+    const cooldownMs = 30 * 60 * 1000;
+    const lastNotifiedForFingerprint = db.opens
+      .filter(
+        (entry) =>
+          entry.messageId === message.id &&
+          entry.recipientFingerprint === input.recipientFingerprint &&
+          entry.notifiedAt,
+      )
+      .sort((a, b) => (a.openedAt < b.openedAt ? 1 : -1))[0];
 
-  const shouldNotify =
-    !lastNotifiedForFingerprint ||
-    now.getTime() - new Date(lastNotifiedForFingerprint.notifiedAt as string).getTime() >= cooldownMs;
+    const shouldNotify =
+      !lastNotifiedForFingerprint ||
+      now.getTime() - new Date(lastNotifiedForFingerprint.notifiedAt as string).getTime() >= cooldownMs;
 
-  const open: MessageOpen = {
-    id: randomUUID(),
-    messageId: message.id,
-    recipientFingerprint: input.recipientFingerprint,
-    openedAt: now.toISOString(),
-    notifiedAt: null,
-  };
-  db.opens.push(open);
-  await logEvent(db, "message_opened", {
-    messageId: message.id,
-    senderEmail: message.senderNotifyEmail,
-    metadata: {
-      slug: message.shortLinkSlug,
-      fingerprint: input.recipientFingerprint,
-    },
+    const open: MessageOpen = {
+      id: randomUUID(),
+      messageId: message.id,
+      recipientFingerprint: input.recipientFingerprint,
+      openedAt: now.toISOString(),
+      notifiedAt: null,
+    };
+    db.opens.push(open);
+    await logEvent(db, "message_opened", {
+      messageId: message.id,
+      senderEmail: message.senderNotifyEmail,
+      metadata: {
+        slug: message.shortLinkSlug,
+        fingerprint: input.recipientFingerprint,
+      },
+    });
+    await writeDb(db);
+    return { open, message, shouldNotify };
   });
-  await writeDb(db);
-  return { open, message, shouldNotify };
 }
 
 export async function markOpenNotificationSent(openId: string): Promise<void> {
-  const db = await readDb();
-  const open = db.opens.find((item) => item.id === openId);
-  if (!open) {
-    return;
-  }
-  open.notifiedAt = new Date().toISOString();
-  await writeDb(db);
+  return withDbLock(async () => {
+    const db = await readDb();
+    const open = db.opens.find((item) => item.id === openId);
+    if (!open) {
+      return;
+    }
+    open.notifiedAt = new Date().toISOString();
+    await writeDb(db);
+  });
+}
+
+
+// Reservations are durable and independent of client/IP identity. Failed sends
+// retain their reservation, so provider failures cannot bypass the sending budget.
+export async function reserveAuthEmail(email: string): Promise<{ ok: boolean; retryAfterSeconds: number }> {
+  return withDbLock(async () => {
+    const db = await readDb();
+    const now = Date.now();
+    const day = 24 * 60 * 60 * 1000;
+    let destination = email.trim().toLowerCase();
+    const [local, domain] = destination.split("@");
+    if (domain === "gmail.com" || domain === "googlemail.com") destination = `${local.split("+")[0].replaceAll(".", "")}@gmail.com`;
+    const digest = createHash("sha256").update(destination).digest("hex");
+    db.authRequests = db.authRequests.filter((entry) => entry.timestamp > now - day);
+    const target = db.authRequests.filter((entry) => entry.destination === digest);
+    const hour = db.authRequests.filter((entry) => entry.timestamp > now - 60 * 60 * 1000);
+    const waitUntil = Math.max(
+      target.length ? target[target.length - 1].timestamp + 2 * 60 * 1000 : 0,
+      target.length >= 3 ? target[0].timestamp + day : 0,
+      hour.length >= 100 ? hour[0].timestamp + 60 * 60 * 1000 : 0,
+      db.authRequests.length >= 300 ? db.authRequests[0].timestamp + day : 0,
+    );
+    if (waitUntil > now) return { ok: false, retryAfterSeconds: Math.ceil((waitUntil - now) / 1000) };
+    db.authRequests.push({ destination: digest, timestamp: now });
+    await writeDb(db);
+    return { ok: true, retryAfterSeconds: 0 };
+  });
+}
+
+export async function consumeMagicLink(token: string, expiresAt: number): Promise<void> {
+  return withDbLock(async () => {
+    const db = await readDb();
+    const now = Math.floor(Date.now() / 1000);
+    db.consumedLinks = db.consumedLinks.filter((entry) => entry.expiresAt > now);
+    const digest = createHash("sha256").update(Buffer.from(token, "base64url")).digest("hex");
+    if (!Number.isSafeInteger(expiresAt) || expiresAt <= now || db.consumedLinks.some((entry) => entry.digest === digest)) throw new Error("Link expired or already used.");
+    db.consumedLinks.push({ digest, expiresAt });
+    await writeDb(db);
+  });
 }

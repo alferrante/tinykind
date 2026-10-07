@@ -97,7 +97,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       payload.deliveryMode === "email" || payload.deliveryMode === "link" ? payload.deliveryMode : null;
     const deliveryMode: DeliveryMode = requestedDeliveryMode ?? (recipientEmailInput ? "email" : "link");
     const authenticatedEmail = getAuthenticatedSenderEmailFromRequest(request);
-    const senderNotifyEmail = payload.senderNotifyEmail?.trim() || authenticatedEmail || null;
+    const senderNotifyEmail = authenticatedEmail;
     if (requestedDeliveryMode === "email" && !recipientEmailInput) {
       throw new Error("Recipient email is required when delivery mode is Send in email.");
     }
@@ -122,6 +122,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const message = await createMessage({
       senderName: payload.senderName ?? "",
       senderNotifyEmail,
+      senderNotifyVerified: Boolean(authenticatedEmail),
       recipientName: payload.recipientName ?? "",
       recipientContact: recipientEmailInput || null,
       body: bodyText,

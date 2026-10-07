@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildAppUrl, getAppBaseUrl } from "@/lib/baseUrl";
-import { addOperationalEvent, ensureSenderProfile } from "@/lib/store";
+import { addOperationalEvent, ensureSenderProfile, consumeMagicLink } from "@/lib/store";
 import { createSessionToken, sanitizePostAuthPath, SENDER_SESSION_COOKIE, verifyMagicLinkToken } from "@/lib/senderAuth";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -12,7 +12,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const { email } = verifyMagicLinkToken(token);
+    const { email, expiresAt } = verifyMagicLinkToken(token);
+    await consumeMagicLink(token, expiresAt);
     await ensureSenderProfile(email);
     await addOperationalEvent("auth_login_succeeded", {
       senderEmail: email,
